@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Stock Portfolio Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- Firebase (for cross-device sync). See firebase-config.js -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+    <div class="notification" id="notification"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>📈 Indian Stock Portfolio Tracker</h1>
+            <p>Complete NSE/BSE Portfolio Management & Analysis</p>
+            <div class="api-status" id="api-status">Checking API...</div>
+            <div class="sync-bar" style="margin-top:15px; display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap;">
+                <span id="sync-status" style="color:rgba(255,255,255,0.85); font-size:0.85em;">Sync: not configured (local only)</span>
+                <input id="sync-code-input" type="text" placeholder="sync code (e.g. raj-portfolio-2026)"
+                    style="padding:6px 10px; border-radius:6px; border:none; font-size:0.85em; min-width:220px;">
+                <button id="sync-link-btn" class="nav-tab" style="padding:6px 14px; font-size:0.85em;">Link device</button>
+            </div>
+        </div>
+
+
+        
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('dashboard', this)">Dashboard</button>
+            <button class="nav-tab" onclick="showTab('portfolio', this)">Portfolio</button>
+            <button class="nav-tab" onclick="showTab('watchlist', this)">Watchlist</button>
+            <button class="nav-tab" onclick="showTab('analysis', this)">Analysis</button>
+            <button class="nav-tab" onclick="showTab('fundamental-analysis', this)">Fundamental Analysis</button> 
+            <button class="nav-tab" onclick="showTab('history', this)">History</button>
+            <button class="nav-tab" onclick="showTab('alerts', this)">Alerts</button>
+            <button class="nav-tab" onclick="showTab('market', this)">Market</button>
+        </div>
+
+        <div id="dashboard" class="tab-content active">
+            <div class="card">
+                <h2>Portfolio Performance Snapshot</h2>
+                <div class="summary-grid" id="dashboard-summary">
+                    
+                    <div class="summary-card">
+                        <div class="summary-title">Total Invested</div>
+                        <div class="summary-value" id="dash-total-invested">₹0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-title">Current Value</div>
+                        <div class="summary-value" id="dash-current-value">₹0</div>
+                    </div>
+                    <div class="summary-card green">
+                        <div class="summary-title">Total %Profit (of Capital)</div>
+                        <div class="summary-value" id="dash-total-profit">0.00%</div>
+                    </div>
+                    <div class="summary-card red">
+                        <div class="summary-title">Total %Loss (of Capital)</div>
+                        <div class="summary-value" id="dash-total-loss">0.00%</div>
+                    </div>
+                    <div class="summary-card green">
+                        <div class="summary-title">Today %Profit (Overall)</div>
+                        <div class="summary-value" id="dash-today-profit">0.00%</div>
+                    </div>
+                    <div class="summary-card red">
+                        <div class="summary-title">Today %Loss (Overall)</div>
+                        <div class="summary-value" id="dash-today-loss">0.00%</div>
+                    </div>
+                    <div class="summary-card yellow">
+                        <div class="summary-title">XIRR (Simplified Annual Return)</div>
+                        <div class="summary-value" id="dash-xirr">0.00%</div>
+                    </div>
+                </div>
+            </div>
+                        
+            <div class="card">
+                <h2>Market Cap Analysis</h2>
+                <div class="dashboard-charts-grid">
+                    <div class="chart-container">
+                        <h3>Market Cap Wise Invested (%)</h3>
+                        <canvas id="chart-cap-invested"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Market Cap Wise %Profit (of Capital)</h3>
+                        <canvas id="chart-cap-profit"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Market Cap Wise %Loss (of Capital)</h3>
+                        <canvas id="chart-cap-loss"></canvas>
+                    </div>
+                </div>
+            </div>
+                        
+            <div class="card">
+                <h2>Sector Analysis</h2>
+                <div class="dashboard-charts-grid">
+                    <div class="chart-container">
+                        <h3>Sector Wise Invested (%)</h3>
+                        <canvas id="chart-sector-invested"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Sector Wise %Profit (of Capital)</h3>
+                        <canvas id="chart-sector-profit"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Sector Wise %Loss (of Capital)</h3>
+                        <canvas id="chart-sector-loss"></canvas>
+                    </div>
+                </div>
+            </div>
+                        
+            <div class="card">
+                <h2>Performance Distribution & Trend</h2>
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+                    <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
+                        <h3 style="margin-bottom: 15px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">Stock Count by P&L Percentage</h3>
+                        <div class="performance-grid">
+                            <div class="perf-card"><div class="perf-title">Stocks > 25% Profit</div><div class="perf-value positive" id="count-p-25">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 50% Profit</div><div class="perf-value positive" id="count-p-50">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 75% Profit</div><div class="perf-value positive" id="count-p-75">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 100% Profit</div><div class="perf-value positive" id="count-p-100">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 200% Profit</div><div class="perf-value positive" id="count-p-200">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 300% Profit</div><div class="perf-value positive" id="count-p-300">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 500% Profit</div><div class="perf-value positive" id="count-p-500">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 5% Loss</div><div class="perf-value negative" id="count-l-5">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 10% Loss</div><div class="perf-value negative" id="count-l-10">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 20% Loss</div><div class="perf-value negative" id="count-l-20">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 25% Loss</div><div class="perf-value negative" id="count-l-25">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 50% Loss</div><div class="perf-value negative" id="count-l-50">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 75% Loss</div><div class="perf-value negative" id="count-l-75">0</div></div>
+                            <div class="perf-card"><div class="perf-title">Stocks > 100% Loss</div><div class="perf-value negative" id="count-l-100">0</div></div>
+                        </div>
+                    </div>
+                                        
+                    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-around; text-align: center;">
+                        <h3 style="border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 15px;">Tomorrow Market Trend</h3>
+                        <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
+                            <div class="perf-title" style="font-size: 1em; margin-bottom: 10px;">AI Prediction Status (Mock)</div>
+                            <div class="perf-value" id="market-prediction" style="font-size: 2.5em; color: #667eea;">Calculating...</div>
+                            <p style="font-size: 0.8em; color: #9ca3af; margin-top: 10px;">(Prediction is based on simple mock logic, not real-time data.)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="portfolio" class="tab-content">
+            
+            <div class="card">
+                <h2>Portfolio Summary</h2>
+                <div class="summary-grid" id="portfolio-summary">
+                    <div class="summary-card">
+                        <div class="summary-title">Total Invested</div>
+                        <div class="summary-value" id="total-invested">₹0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-title">Current Value</div>
+                        <div class="summary-value" id="current-value">₹0</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-title">Total P&L</div>
+                        <div class="summary-value" id="total-pnl">₹0</div>
+                        <div class="summary-change" id="total-pnl-percent">0%</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-title">Holdings</div>
+                        <div class="summary-value" id="total-holdings">0</div>
+                        <div class="summary-change">Stocks</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Add / Edit Stock</h2>
+                <div class="form-section">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ticker">Ticker Symbol (NSE/BSE)</label>
+                            <input type="text" id="ticker" class="form-control" placeholder="e.g., RELIANCE" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label for="buy-date">Buy Date</label>
+                            <input type="date" id="buy-date" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="quantity">Quantity</label>
+                            <input type="number" id="quantity" class="form-control" placeholder="No. of Shares">
+                        </div>
+                        <div class="form-group">
+                            <label for="buy-price">Buy Price (₹)</label>
+                            <input type="number" id="buy-price" class="form-control" placeholder="Price per share">
+                        </div>
+                        <div class="form-group">
+                            <label for="sector">Sector</label>
+                            <input type="text" id="sector" class="form-control" placeholder="e.g., Finance, Tech">
+                        </div>
+                        <div class="form-group">
+                            <label for="market-cap">Market Cap</label>
+                            <select id="market-cap" class="form-control">
+                                <option value="Large">Large</option>
+                                <option value="Mid">Mid</option>
+                                <option value="Small">Small</option>
+                                <option value="Micro">Micro</option>
+                                <option value="Nano">Nano</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="latest-high">Latest High (₹)</label>
+                            <input type="number" id="latest-high" class="form-control" placeholder="Max price achieved">
+                        </div>
+                        <div class="form-group">
+                            <label for="down-percent">Rolling SL Down (%)</label>
+                            <input type="number" id="down-percent" class="form-control" placeholder="e.g., 5, 10">
+                        </div>
+                        <div class="form-group">
+                            <label for="target1">Target Level 1 (₹)</label>
+                            <input type="number" id="target1" class="form-control" placeholder="Price Target 1">
+                        </div>
+                        <div class="form-group">
+                            <label for="target2">Target Level 2 (₹)</label>
+                            <input type="number" id="target2" class="form-control" placeholder="Price Target 2">
+                        </div>
+                        <div class="form-group">
+                            <label for="target3">Target Level 3 (₹)</label>
+                            <input type="number" id="target3" class="form-control" placeholder="Price Target 3">
+                        </div>
+                        <div class="form-group">
+                            <label for="interval">Time Interval</label>
+                            <select id="interval" class="form-control">
+                                <option value="Short">Short</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Long">Long</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" id="add-stock-btn" onclick="addOrUpdateStock()">Add/Update Stock</button>
+                    <button class="btn btn-warning" id="reset-form-btn" onclick="resetForm()" style="display: none;">Cancel Edit</button>
+                    <button class="btn" onclick="refreshAllPrices()">Refresh All Prices</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Holdings Details</h2>
+                <div class="table-container">
+                    <table class="portfolio-table">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Buy Date</th>
+                                <th>Quantity</th>
+                                <th>Buy Price</th>
+                                <th>CMP</th>
+                                <th>% Change<br>(Today)</th>
+                                <th>Total<br>Investment</th>
+                                <th>Current<br>Value</th>
+                                <th>P&L (₹)</th>
+                                <th>P&L (%)</th>
+                                <th>No of<br>Days</th>
+                                <th>Latest High</th>
+                                <th>% Down<br>(Rolling SL)</th>
+                                <th>Target<br>Level 1</th>
+                                <th>Target<br>Level 2</th>
+                                <th>Target<br>Level 3</th>
+                                <th>Time Interval</th>
+                                <th>Sector</th>
+                                <th>Market Cap</th>
+                                <th>Alert Mode</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolio-tbody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="watchlist" class="tab-content">
+            <div class="card">
+                <h2>Stock Watchlist Details</h2>
+                <div class="form-section">
+                    <h3>Add Stock to Watchlist</h3>
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                        <div class="form-group">
+                            <label for="watchlist-ticker">Ticker Symbol (NSE/BSE)</label>
+                            <input type="text" id="watchlist-ticker" class="form-control" placeholder="e.g., INFOSYS" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label for="watchlist-entry-date">Entry Date</label>
+                            <input type="date" id="watchlist-entry-date" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="watchlist-breakout-price">Breakout Price (₹)</label>
+                            <input type="number" id="watchlist-breakout-price" class="form-control" placeholder="Optional breakout level">
+                        </div>
+                    </div>
+                    <div class="form-grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="form-group">
+                            <label>MACD Signals (A, S, Q, M, W)</label>
+                            <div style="display: flex; gap: 15px;">
+                                <label><input type="checkbox" id="macd-A" value="A"> A</label>
+                                <label><input type="checkbox" id="macd-S" value="S"> S</label>
+                                <label><input type="checkbox" id="macd-Q" value="Q"> Q</label>
+                                <label><input type="checkbox" id="macd-M" value="M"> M</label>
+                                <label><input type="checkbox" id="macd-W" value="W"> W</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>EMA Indicators (M, W, D, 3h, 1h)</label>
+                            <div style="display: flex; gap: 15px;">
+                                <label><input type="checkbox" id="ema-M" value="M"> M</label>
+                                <label><input type="checkbox" id="ema-W" value="W"> W</label>
+                                <label><input type="checkbox" id="ema-D" value="D"> D</label>
+                                <label><input type="checkbox" id="ema-3h" value="3h"> 3h</label>
+                                <label><input type="checkbox" id="ema-1h" value="1h"> 1h</label>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="addToWatchlist()">Add to Watchlist</button>
+                    <button class="btn" onclick="refreshWatchlistPrices()">Refresh Watchlist Prices</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="portfolio-table" id="watchlist-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Entry Date</th>
+                                <th rowspan="2">Ticker</th>
+                                <th colspan="3">CMP % Change</th>
+                                <th rowspan="2">CMP (Price)</th>
+                                <th rowspan="2">Breakout<br>Price (₹)</th>
+                                <th rowspan="2">% Change<br>(Entry Date)</th>
+                                <th colspan="3">Volume %</th>
+                                <th colspan="5">MACD (Checkbox)</th>
+                                <th colspan="5">EMA (Indicator)</th>
+                                <th rowspan="2">Actions</th>
+                            </tr>
+                            <tr>
+                                <th>3 Days</th>
+                                <th>1 Week</th>
+                                <th>24 Days</th>
+                                <th>3 Days</th>
+                                <th>1 Week</th>
+                                <th>24 Days</th>
+                                <th>A</th>
+                                <th>S</th>
+                                <th>Q</th>
+                                <th>M</th>
+                                <th>W</th>
+                                <th>M</th>
+                                <th>W</th>
+                                <th>D</th>
+                                <th>3h</th>
+                                <th>1h</th>
+                            </tr>
+                        </thead>
+                        <tbody id="watchlist-tbody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="analysis" class="tab-content">
+            <div class="card">
+                <h2>Stock Analysis & Charting</h2>
+                <div class="form-section">
+                    <div class="form-grid" style="grid-template-columns: 1fr auto;">
+                        <div class="form-group">
+                            <label for="analysis-ticker">Ticker Symbol</label>
+                            <input type="text" id="analysis-ticker" class="form-control" placeholder="e.g., RELIANCE" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group" style="align-self: end;">
+                            <button class="btn btn-warning" onclick="performAnalysis()">Analyze</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="analysis-results" class="loading">Enter a ticker and click 'Analyze' to view data.</div>
+            </div>
+        </div>
+
+        <div id="fundamental-analysis" class="tab-content">
+            <div class="card">
+                <h2>Fundamental Analysis Screener</h2>
+                <div class="form-section">
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr auto;">
+                        <div class="form-group">
+                            <label for="fundamental-ticker">Ticker Symbol</label>
+                            <input type="text" id="fundamental-ticker" class="form-control" placeholder="e.g., RELIANCE" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label for="fundamental-marketcap">Market Cap Category</label>
+                            <select id="fundamental-marketcap" class="form-control" onchange="renderFundamentalCriteriaTable()">
+                                <option value="Large">Large</option>
+                                <option value="Mid">Mid</option>
+                                <option value="Small">Small</option>
+                                <option value="Micro">Micro</option>
+                                <option value="Nano">Nano</option>
+                                <option value="All">All Categories (Base Criteria)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="align-self: end;">
+                            <button class="btn btn-warning" onclick="analyzeFundamental()">Analyze Ticker</button>
+                        </div>
+                    </div>
+                     <div style="display: flex; gap: 20px; align-items: center; margin-top: 20px; flex-wrap: wrap;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="margin-bottom: 0;">Index Set Value Source</label>
+                            <div style="display: flex; gap: 15px;">
+                                <label><input type="radio" name="criteria-mode" value="Default" checked onchange="toggleCriteriaMode(this.value)"> Default</label>
+                                <label><input type="radio" name="criteria-mode" value="User" onchange="toggleCriteriaMode(this.value)"> User</label>
+                            </div>
+                        </div>
+                        <button class="btn btn-warning" id="save-default-btn" onclick="saveUserCriteriaAsDefault()" style="display: none;">Save as Default</button>
+                        <button class="btn btn-success" onclick="addNewFundamentalCriteria()">Add New Parameter</button>
+                    </div>
+                    </div>
+                <div class="table-container" style="margin-top: 20px;">
+                    <table class="portfolio-table" id="fundamental-table">
+                        <thead>
+                            <tr>
+                                <th style="min-width: 250px;">Parameters</th>
+                                <th style="min-width: 100px;">Operators</th>
+                                <th style="min-width: 220px;">Index Set Value</th>
+                                <th style="min-width: 150px;">Company Value</th>
+                                <th style="min-width: 100px;">Score</th>
+                                <th style="min-width: 150px;">Remarks</th>
+                                <th style="min-width: 150px;">Actions</th> </tr>
+                        </thead>
+                        <tbody id="fundamental-tbody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="history" class="tab-content">
+            <div class="card">
+                <h2>Transaction History (Sold Stocks)</h2>
+                <div class="table-container">
+                    <table class="portfolio-table">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Buy Date</th>
+                                <th>Sold Date</th>
+                                <th>Days Held</th>
+                                <th>Quantity</th>
+                                <th>Buy Price</th>
+                                <th>Sold Price</th>
+                                <th>P&L (₹)</th>
+                                <th>P&L (%)</th>
+                                <th>Market Cap</th>
+                                <th>Sector</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="alerts" class="tab-content">
+            <div class="card">
+                <h2>Price Alerts & Status</h2>
+                <div class="form-section">
+                    <h3>Set New Price Alert</h3>
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto;">
+                        <div class="form-group">
+                            <label for="alert-ticker">Ticker Symbol</label>
+                            <input type="text" id="alert-ticker" class="form-control" placeholder="e.g., TCS" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label for="alert-condition">Condition</label>
+                            <select id="alert-condition" class="form-control">
+                                <option value="above">Above Price (≥)</option>
+                                <option value="below">Below Price (≤)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="alert-price">Target Price (₹)</label>
+                            <input type="number" id="alert-price" class="form-control" placeholder="e.g., 3500">
+                        </div>
+                        <div class="form-group" style="align-self: end;">
+                            <button class="btn btn-primary" onclick="addAlert()">Set Alert</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="portfolio-table">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Condition</th>
+                                <th>Target Price</th>
+                                <th>Current Price</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alerts-tbody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div id="market" class="tab-content">
+            <div class="card">
+                <h2>Market Overview (Mock Data)</h2>
+                <div class="summary-grid" id="market-indices">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
