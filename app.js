@@ -310,7 +310,14 @@
         // through a free public CORS proxy. Several proxies are tried in order
         // in case one is temporarily down; if all fail, mock data is used so the
         // app never breaks.
+        // If you deploy the included worker.js to Cloudflare Workers (free,
+        // see README.md), paste your *.workers.dev URL here. It's tried
+        // first because it's yours alone and won't be rate-limited by
+        // other people's traffic, unlike the public proxies below.
+        const PERSONAL_PROXY_URL = 'https://damp-moon-1fbf.abhayaagney.workers.dev'; // e.g. 'https://your-worker.your-name.workers.dev'
+
         const CORS_PROXIES = [
+            ...(PERSONAL_PROXY_URL ? [(url) => `${PERSONAL_PROXY_URL}?url=${encodeURIComponent(url)}`] : []),
             (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
             (url) => `https://corsproxy.io/${url}`,
             (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
@@ -1614,7 +1621,7 @@
             const codeInput = document.getElementById('sync-code-input');
             if (!linkBtn || !codeInput) return;
 
-            if (syncCode) codeInput.value = syncCode;        
+            if (syncCode) codeInput.value = syncCode;
 
             linkBtn.addEventListener('click', async () => {
                 const code = codeInput.value.trim();
