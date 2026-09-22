@@ -1614,7 +1614,7 @@
             const codeInput = document.getElementById('sync-code-input');
             if (!linkBtn || !codeInput) return;
 
-            if (syncCode) codeInput.value = syncCode;
+            if (syncCode) codeInput.value = syncCode;        
 
             linkBtn.addEventListener('click', async () => {
                 const code = codeInput.value.trim();
