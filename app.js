@@ -1,4 +1,4 @@
-        // =============================================================================
+// =============================================================================
         // GLOBAL STATE & UTILITIES
         // =============================================================================
         const appState = {
@@ -312,22 +312,25 @@
         // app never breaks.
         const CORS_PROXIES = [
             (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+            (url) => `https://corsproxy.io/${url}`,
             (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
         ];
 
-        async function fetchWithProxies(targetUrl, timeoutMs = 6000) {
+        async function fetchWithProxies(targetUrl, timeoutMs = 8000) {
             let lastError = null;
             for (const buildProxyUrl of CORS_PROXIES) {
+                const proxyUrl = buildProxyUrl(targetUrl);
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), timeoutMs);
                 try {
-                    const response = await fetch(buildProxyUrl(targetUrl), { signal: controller.signal });
+                    const response = await fetch(proxyUrl, { signal: controller.signal });
                     clearTimeout(timer);
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    return await response.json();
+                    const json = await response.json();
+                    return json;
                 } catch (error) {
                     clearTimeout(timer);
+                    console.warn(`Proxy failed (${proxyUrl}):`, error.message);
                     lastError = error;
                     // try the next proxy
                 }
@@ -1377,15 +1380,28 @@
         }
 
 
-        function analyzeFundamental() {
+        async function analyzeFundamental() {
             const ticker = document.getElementById('fundamental-ticker').value.toUpperCase().trim();
             if (!ticker) {
                 showNotification('Please enter a Ticker Symbol to analyze.', true);
                 return;
             }
-            showNotification(`Running fundamental analysis for ${ticker}... (In a real app, this would be an API call)`);
-            
-            // The table mock-updates on its own when re-rendered, simulating analysis.
+            showNotification(`Fetching live data for ${ticker}...`);
+
+            const data = await fetchStockPrice(ticker);
+            if (data.success) {
+                const sign = data.change >= 0 ? '+' : '';
+                showNotification(
+                    `${ticker}: ₹${data.price.toFixed(2)} (${sign}${data.changePercent.toFixed(2)}%) — ` +
+                    `data delayed ~15 min. Note: the criteria table below is your screening ` +
+                    `checklist (thresholds you set), not this ticker's actual fundamentals — ` +
+                    `free fundamentals data (P/E, ROE, etc.) isn't wired in yet.`
+                );
+            } else {
+                showNotification(`Couldn't fetch live data for ${ticker} right now. Showing your saved criteria only.`, true);
+            }
+
+            // The table shows your screening thresholds, re-rendered for the selected market cap.
             renderFundamentalCriteriaTable();
         }
 
@@ -1614,4 +1630,3 @@
                 showNotification(pull ? 'Synced: pulled data from cloud.' : 'Synced: pushed data to cloud.');
             });
         }
-
