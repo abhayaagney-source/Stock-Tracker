@@ -32,6 +32,7 @@
             <button class="nav-tab active" onclick="showTab('dashboard', this)">Dashboard</button>
             <button class="nav-tab" onclick="showTab('portfolio', this)">Portfolio</button>
             <button class="nav-tab" onclick="showTab('watchlist', this)">Watchlist</button>
+            <button class="nav-tab" onclick="showTab('watchlist-history', this)">Watchlist History</button>
             <button class="nav-tab" onclick="showTab('analysis', this)">Analysis</button>
             <button class="nav-tab" onclick="showTab('fundamental-analysis', this)">Fundamental Analysis</button> 
             <button class="nav-tab" onclick="showTab('history', this)">History</button>
@@ -207,10 +208,6 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="latest-high">Latest High (₹)</label>
-                            <input type="number" id="latest-high" class="form-control" placeholder="Max price achieved">
-                        </div>
-                        <div class="form-group">
                             <label for="down-percent">Rolling SL Down (%)</label>
                             <input type="number" id="down-percent" class="form-control" placeholder="e.g., 5, 10">
                         </div>
@@ -308,13 +305,32 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>EMA Indicators (M, W, D, 3h, 1h)</label>
+                            <label>EMA Indicators (W, D, 3h, 1h)</label>
                             <div style="display: flex; gap: 15px;">
-                                <label><input type="checkbox" id="ema-M" value="M"> M</label>
                                 <label><input type="checkbox" id="ema-W" value="W"> W</label>
                                 <label><input type="checkbox" id="ema-D" value="D"> D</label>
                                 <label><input type="checkbox" id="ema-3h" value="3h"> 3h</label>
                                 <label><input type="checkbox" id="ema-1h" value="1h"> 1h</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>CCI - 33,72,152 &gt; 90 (M, W, D, 3h, 1h)</label>
+                            <div style="display: flex; gap: 15px;">
+                                <label><input type="checkbox" id="cci1-M" value="M"> M</label>
+                                <label><input type="checkbox" id="cci1-W" value="W"> W</label>
+                                <label><input type="checkbox" id="cci1-D" value="D"> D</label>
+                                <label><input type="checkbox" id="cci1-3h" value="3h"> 3h</label>
+                                <label><input type="checkbox" id="cci1-1h" value="1h"> 1h</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>CCI - 200,369 &gt; zero (A, S, Q, M, W)</label>
+                            <div style="display: flex; gap: 15px;">
+                                <label><input type="checkbox" id="cci2-A" value="A"> A</label>
+                                <label><input type="checkbox" id="cci2-S" value="S"> S</label>
+                                <label><input type="checkbox" id="cci2-Q" value="Q"> Q</label>
+                                <label><input type="checkbox" id="cci2-M" value="M"> M</label>
+                                <label><input type="checkbox" id="cci2-W" value="W"> W</label>
                             </div>
                         </div>
                     </div>
@@ -328,13 +344,16 @@
                             <tr>
                                 <th rowspan="2">Entry Date</th>
                                 <th rowspan="2">Ticker</th>
-                                <th colspan="3">CMP % Change</th>
                                 <th rowspan="2">CMP (Price)</th>
                                 <th rowspan="2">Breakout<br>Price (₹)</th>
                                 <th rowspan="2">% Change<br>(Entry Date)</th>
+                                <th rowspan="2">% Change<br>(Breakout Price)</th>
+                                <th colspan="3">CMP % Change</th>
                                 <th colspan="3">Volume %</th>
+                                <th colspan="4">EMA (Indicator)</th>
                                 <th colspan="5">MACD (Checkbox)</th>
-                                <th colspan="5">EMA (Indicator)</th>
+                                <th colspan="5">CCI - 33,72,152 &gt; 90</th>
+                                <th colspan="5">CCI - 200,369 &gt; zero</th>
                                 <th rowspan="2">Actions</th>
                             </tr>
                             <tr>
@@ -344,6 +363,10 @@
                                 <th>3 Days</th>
                                 <th>1 Week</th>
                                 <th>24 Days</th>
+                                <th>W</th>
+                                <th>D</th>
+                                <th>3h</th>
+                                <th>1h</th>
                                 <th>A</th>
                                 <th>S</th>
                                 <th>Q</th>
@@ -354,9 +377,72 @@
                                 <th>D</th>
                                 <th>3h</th>
                                 <th>1h</th>
+                                <th>A</th>
+                                <th>S</th>
+                                <th>Q</th>
+                                <th>M</th>
+                                <th>W</th>
                             </tr>
                         </thead>
                         <tbody id="watchlist-tbody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="watchlist-history" class="tab-content">
+            <div class="card">
+                <h2>Watchlist History</h2>
+                <p style="color:#6b7280; margin-bottom:15px;">Stocks moved here automatically when you click "Bought" on the Watchlist tab.</p>
+                <div class="table-container">
+                    <table class="portfolio-table" id="watchlist-history-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Bought Date</th>
+                                <th rowspan="2">Entry Date</th>
+                                <th rowspan="2">Ticker</th>
+                                <th rowspan="2">CMP (Price)</th>
+                                <th rowspan="2">Breakout<br>Price (₹)</th>
+                                <th rowspan="2">% Change<br>(Entry Date)</th>
+                                <th rowspan="2">% Change<br>(Breakout Price)</th>
+                                <th colspan="3">CMP % Change</th>
+                                <th colspan="3">Volume %</th>
+                                <th colspan="4">EMA (Indicator)</th>
+                                <th colspan="5">MACD (Checkbox)</th>
+                                <th colspan="5">CCI - 33,72,152 &gt; 90</th>
+                                <th colspan="5">CCI - 200,369 &gt; zero</th>
+                                <th rowspan="2">Actions</th>
+                            </tr>
+                            <tr>
+                                <th>3 Days</th>
+                                <th>1 Week</th>
+                                <th>24 Days</th>
+                                <th>3 Days</th>
+                                <th>1 Week</th>
+                                <th>24 Days</th>
+                                <th>W</th>
+                                <th>D</th>
+                                <th>3h</th>
+                                <th>1h</th>
+                                <th>A</th>
+                                <th>S</th>
+                                <th>Q</th>
+                                <th>M</th>
+                                <th>W</th>
+                                <th>M</th>
+                                <th>W</th>
+                                <th>D</th>
+                                <th>3h</th>
+                                <th>1h</th>
+                                <th>A</th>
+                                <th>S</th>
+                                <th>Q</th>
+                                <th>M</th>
+                                <th>W</th>
+                            </tr>
+                        </thead>
+                        <tbody id="watchlist-history-tbody">
                             </tbody>
                     </table>
                 </div>
