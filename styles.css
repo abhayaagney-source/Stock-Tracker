@@ -1,4 +1,4 @@
-        /* Global Styles */
+/* Global Styles */
         * {
             margin: 0;
             padding: 0;
@@ -256,12 +256,16 @@
             overflow: hidden;
         }
         
-        .portfolio-table th {
-            /* STICKY HEADER LOGIC */
+        .portfolio-table thead {
+            /* STICKY HEADER LOGIC — sticking the whole thead (not each th)
+               keeps multi-row headers (like Watchlist) aligned as one block
+               while you scroll through the rows below. */
             position: sticky;
-            top: 0; 
-            z-index: 10; /* Ensures header stays on top of tbody content */
-            
+            top: 0;
+            z-index: 10;
+        }
+
+        .portfolio-table th {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 15px 10px;
@@ -434,4 +438,3 @@
         .action-buttons {
             white-space: nowrap;
         }
-        
