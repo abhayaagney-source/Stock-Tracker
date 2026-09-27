@@ -163,28 +163,96 @@
         const dashboardCharts = {};
 
         // Market Cap Defaults for Fundamental Analysis (Mock Data)
+        // Per-market-cap threshold overrides. Keys must match a fundamentalCriteria
+        // "name" exactly (or "name <operator>" when the same name is used twice
+        // with different operators, e.g. the two "Market capitalization" rows).
         const marketCapDefaults = {
             'Large': {
                 'P/E Ratio': '35',
-                'Promoter holding': '45%',
-                'Market capitalization': '180000',
+                'Price to book value': '7',
+                'Debt to equity': '0.4',
+                'Return on equity': '13%',
+                'Average return on equity 5 Years': '15%',
+                'Sales growth 3 Years': '5%',
+                'Promoter holding': '40%',
+                'Net block': '1.05 * Net block 3 Years back',
+                'Net block preceding year': '5%',
+                'Market capitalization >': '47000',
+                'Tax last year': '0.20 * Net profit last year',
+                'Tax preceding year': '0.20 * Net profit preceding year',
+                'Return on assets': '7%',
+                'Return on assets 3 Years': '7%',
+                'Return on assets 5 years': '7%',
+                'OPM 5 Year': '11%',
+                'OPM last year': '11%',
+                'Free cash flow 5 years': '0.8',
+                'Asset turnover ratio': '0.35',
             },
             'Mid': {
                 'P/E Ratio': '50',
-                'Promoter holding': '40%',
-                'Market capitalization >': '40000',
-                'Market capitalization <': '180000',
+                'Price to book value': '6',
+                'Debt to equity': '0.3',
+                'Return on equity': '14%',
+                'Average return on equity 5 Years': '16%',
+                'Sales growth 3 Years': '6%',
+                'Promoter holding': '42%',
+                'Net block': '1.1 * Net block 3 Years back',
+                'Net block preceding year': '7%',
+                'Market capitalization >': '16000',
+                'Market capitalization <': '47000',
+                'Tax last year': '0.21 * Net profit last year',
+                'Tax preceding year': '0.21 * Net profit preceding year',
+                'Return on assets': '8%',
+                'Return on assets 3 Years': '8%',
+                'Return on assets 5 years': '8%',
+                'OPM 5 Year': '12%',
+                'OPM last year': '12%',
+                'Free cash flow 5 years': '0.7',
+                'Asset turnover ratio': '0.45',
             },
             'Small': {
                 'P/E Ratio': '70',
-                'Promoter holding': '35%',
-                'Market capitalization >': '5000',
-                'Market capitalization <': '40000',
+                'Price to book value': '5.5',
+                'Debt to equity': '0.25',
+                'Return on equity': '16%',
+                'Average return on equity 5 Years': '18%',
+                'Sales growth 3 Years': '7.5%',
+                'Promoter holding': '43%',
+                'Net block': '1.2 * Net block 3 Years back',
+                'Net block preceding year': '8%',
+                'Market capitalization >': '1000',
+                'Market capitalization <': '16000',
+                'Tax last year': '0.22 * Net profit last year',
+                'Tax preceding year': '0.22 * Net profit preceding year',
+                'Return on assets': '9%',
+                'Return on assets 3 Years': '9%',
+                'Return on assets 5 years': '9%',
+                'OPM 5 Year': '13%',
+                'OPM last year': '13%',
+                'Free cash flow 5 years': '0.6',
+                'Asset turnover ratio': '0.48',
             },
             'Micro': {
                 'P/E Ratio': '100',
-                'Promoter holding': '30%',
-                'Market capitalization <': '5000',
+                'Price to book value': '4.5',
+                'Debt to equity': '0.18',
+                'Return on equity': '18%',
+                'Average return on equity 5 Years': '20%',
+                'Sales growth 3 Years': '9%',
+                'Promoter holding': '45%',
+                'Net block': '1.3 * Net block 3 Years back',
+                'Net block preceding year': '10%',
+                'Market capitalization >': '200',
+                'Market capitalization <': '1000',
+                'Tax last year': '0.23 * Net profit last year',
+                'Tax preceding year': '0.23 * Net profit preceding year',
+                'Return on assets': '10%',
+                'Return on assets 3 Years': '10%',
+                'Return on assets 5 years': '10%',
+                'OPM 5 Year': '14%',
+                'OPM last year': '14%',
+                'Free cash flow 5 years': '0.5',
+                'Asset turnover ratio': '0.52',
             },
             'Nano': {
                 'P/E Ratio': '150',
@@ -194,27 +262,36 @@
             'All': {}
         };
 
-        // Base Criteria for Fundamental Analysis (Mock Data) - Note: Names must be unique keys for user criteria overrides
+        // Base Criteria for Fundamental Analysis — this is a manual screening
+        // CHECKLIST you configure per market cap (like Screener.in's "Add new
+        // ratio"), not a live per-stock fundamentals fetch. See the note in
+        // analyzeFundamental(). Values below are the Large-cap defaults;
+        // Mid/Small/Micro use the overrides in marketCapDefaults above.
         const fundamentalCriteria = [
             { name: "P/E Ratio", operator: "<", baseValue: "40" },
-            { name: "Price to book value", operator: "<", baseValue: "6" },
-            { name: "Debt to equity", operator: "<", baseValue: "0.5" },
-            { name: "Return on equity", operator: ">", baseValue: "15%" },
-            { name: "Sales growth 3 Years", operator: ">", baseValue: "10%" },
+            { name: "Price to book value", operator: "<", baseValue: "7" },
+            { name: "Debt to equity", operator: "<", baseValue: "0.4" },
+            { name: "Return on equity", operator: ">", baseValue: "13%" },
+            { name: "Average return on equity 5 Years", operator: ">", baseValue: "15%" },
+            { name: "Sales growth 3 Years", operator: ">", baseValue: "5%" },
             { name: "Net profit", operator: ">", baseValue: "0" },
             { name: "Promoter holding", operator: ">", baseValue: "40%" },
-            { name: "Net block", operator: ">", baseValue: "1.2 * Net block 3 Years back" },
-            { name: "Market capitalization", operator: ">", baseValue: "400" },
+            { name: "Net block", operator: ">", baseValue: "1.05 * Net block 3 Years back" },
+            { name: "Net block preceding year", operator: ">", baseValue: "5%" },
+            { name: "Market capitalization", operator: ">", baseValue: "47000" },
             { name: "Market capitalization", operator: "<", baseValue: "180000" },
-            { name: "Tax last year", operator: ">", baseValue: "0.22 * Net profit last year" },
-            { name: "Tax preceding year", operator: ">", baseValue: "0.22 * Net profit preceding year" },
-            { name: "Return on assets", operator: ">", baseValue: "9%" },
-            { name: "Return on assets 3 Years", operator: ">", baseValue: "9%" },
-            { name: "Return on assets 5 years", operator: ">", baseValue: "9%" },
-            { name: "OPM 5 Year", operator: ">", baseValue: "13%" },
-            { name: "OPM 10 Year", operator: ">", baseValue: "12%" },
+            { name: "Tax last year", operator: ">", baseValue: "0.20 * Net profit last year" },
+            { name: "Tax preceding year", operator: ">", baseValue: "0.20 * Net profit preceding year" },
+            { name: "Return on assets", operator: ">", baseValue: "7%" },
+            { name: "Return on assets 3 Years", operator: ">", baseValue: "7%" },
+            { name: "Return on assets 5 years", operator: ">", baseValue: "7%" },
+            { name: "OPM 5 Year", operator: ">", baseValue: "11%" },
+            { name: "OPM last year", operator: ">", baseValue: "11%" },
             { name: "EPS 3 Years", operator: ">", baseValue: "0%" },
             { name: "EPS 5 Years", operator: ">", baseValue: "0%" },
+            { name: "Free cash flow 5 years", operator: ">", baseValue: "0.8" },
+            { name: "Asset turnover ratio", operator: ">", baseValue: "0.35" },
+            { name: "Contingent liabilities", operator: "<", baseValue: "Net profit" },
         ];
 
 
@@ -352,11 +429,11 @@
         }
 
         // Tries NSE (.NS) first, then BSE (.BO), since most tickers here are NSE.
-        async function fetchYahooChart(symbol) {
+        async function fetchYahooChart(symbol, range = '1mo') {
             const suffixes = ['.NS', '.BO'];
             let lastError = null;
             for (const suffix of suffixes) {
-                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}${suffix}?interval=1d&range=1mo`;
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}${suffix}?interval=1d&range=${range}`;
                 try {
                     const data = await fetchWithProxies(yahooUrl);
                     const result = data && data.chart && data.chart.result && data.chart.result[0];
@@ -413,10 +490,12 @@
                 const meta = result.meta;
                 const quote = result.indicators && result.indicators.quote && result.indicators.quote[0];
                 const closes = quote && quote.close ? quote.close.filter(v => v !== null && v !== undefined) : [];
+                const volumes = quote && quote.volume ? quote.volume.filter(v => v !== null && v !== undefined) : [];
 
                 const price = meta.regularMarketPrice;
                 const prevClose = meta.previousClose || meta.chartPreviousClose || price;
                 const change = price - prevClose;
+                const currentVolume = meta.regularMarketVolume || (volumes.length ? volumes[volumes.length - 1] : 0);
 
                 appState.apiStatus = 'live';
                 updateApiStatus();
@@ -429,16 +508,16 @@
                     changePercent: prevClose ? (change / prevClose) * 100 : 0,
                     high: meta.regularMarketDayHigh || price,
                     low: meta.regularMarketDayLow || price,
-                    volume: meta.regularMarketVolume || 0,
+                    volume: currentVolume,
                     longName: meta.longName || meta.shortName || `${symbol} Limited`,
                     success: true,
                     historic: {
                         price3d: percentChangeFromCloses(closes, 3, price),
                         price1w: percentChangeFromCloses(closes, 5, price),
                         price24d: percentChangeFromCloses(closes, closes.length - 1, price),
-                        volume3d: 0,
-                        volume1w: 0,
-                        volume24d: 0,
+                        volume3d: percentChangeFromCloses(volumes, 3, currentVolume),
+                        volume1w: percentChangeFromCloses(volumes, 5, currentVolume),
+                        volume24d: percentChangeFromCloses(volumes, volumes.length - 1, currentVolume),
                     }
                 };
             } catch (error) {
@@ -1540,6 +1619,183 @@
             }
         }
 
+        // =============================================================================
+        // STOCK ANALYSIS & CHARTING (Price + EMA + MACD + CCI)
+        // =============================================================================
+        // Indicator math, computed client-side from ~6 months of free daily
+        // OHLC data (same Yahoo Finance source as everything else). Standard
+        // periods are used here (EMA 20/50, MACD 12/26/9, CCI 20) — this is
+        // separate from the manual checklist checkboxes on the Watchlist tab.
+        let analysisCharts = { price: null, macd: null, cci: null };
+
+        function calculateEMASeries(values, period) {
+            const k = 2 / (period + 1);
+            const ema = new Array(values.length).fill(null);
+            let prev = null;
+            for (let i = 0; i < values.length; i++) {
+                if (values[i] === null || values[i] === undefined) continue;
+                if (prev === null) {
+                    // Seed with a simple average of the first `period` values
+                    if (i >= period - 1) {
+                        const slice = values.slice(i - period + 1, i + 1);
+                        prev = slice.reduce((a, b) => a + b, 0) / period;
+                        ema[i] = prev;
+                    }
+                } else {
+                    prev = values[i] * k + prev * (1 - k);
+                    ema[i] = prev;
+                }
+            }
+            return ema;
+        }
+
+        function calculateMACDSeries(closes) {
+            const ema12 = calculateEMASeries(closes, 12);
+            const ema26 = calculateEMASeries(closes, 26);
+            const macdLine = closes.map((_, i) =>
+                (ema12[i] !== null && ema26[i] !== null) ? ema12[i] - ema26[i] : null
+            );
+            // Signal line = EMA9 of the MACD line (skip nulls at the start)
+            const macdValuesOnly = macdLine.map(v => v === null ? 0 : v);
+            const signalRaw = calculateEMASeries(macdValuesOnly, 9);
+            const signalLine = macdLine.map((v, i) => (v === null ? null : signalRaw[i]));
+            const histogram = macdLine.map((v, i) =>
+                (v !== null && signalLine[i] !== null) ? v - signalLine[i] : null
+            );
+            return { macdLine, signalLine, histogram };
+        }
+
+        function calculateCCISeries(highs, lows, closes, period = 20) {
+            const typicalPrices = closes.map((c, i) => (highs[i] + lows[i] + c) / 3);
+            const cci = new Array(closes.length).fill(null);
+            for (let i = period - 1; i < closes.length; i++) {
+                const slice = typicalPrices.slice(i - period + 1, i + 1);
+                const sma = slice.reduce((a, b) => a + b, 0) / period;
+                const meanDeviation = slice.reduce((sum, tp) => sum + Math.abs(tp - sma), 0) / period;
+                cci[i] = meanDeviation === 0 ? 0 : (typicalPrices[i] - sma) / (0.015 * meanDeviation);
+            }
+            return cci;
+        }
+
+        function destroyAnalysisCharts() {
+            Object.keys(analysisCharts).forEach(key => {
+                if (analysisCharts[key]) {
+                    analysisCharts[key].destroy();
+                    analysisCharts[key] = null;
+                }
+            });
+        }
+
+        async function performAnalysis() {
+            const ticker = document.getElementById('analysis-ticker').value.toUpperCase().trim();
+            const resultsDiv = document.getElementById('analysis-results');
+            const chartsDiv = document.getElementById('analysis-charts');
+
+            if (!ticker) {
+                resultsDiv.style.display = 'block';
+                resultsDiv.textContent = 'Please enter a ticker symbol to analyze.';
+                chartsDiv.style.display = 'none';
+                return;
+            }
+
+            resultsDiv.style.display = 'block';
+            resultsDiv.textContent = `Loading chart data for ${ticker}...`;
+            chartsDiv.style.display = 'none';
+
+            let result;
+            try {
+                result = await fetchYahooChart(ticker, '6mo');
+            } catch (error) {
+                resultsDiv.textContent = `Couldn't load chart data for ${ticker}. It may be an invalid symbol, or the free data source is temporarily unavailable — try again in a moment.`;
+                return;
+            }
+
+            const timestamps = result.timestamp || [];
+            const quote = result.indicators && result.indicators.quote && result.indicators.quote[0];
+            if (!quote || !timestamps.length) {
+                resultsDiv.textContent = `No historical data available for ${ticker}.`;
+                return;
+            }
+
+            // Build clean parallel arrays, dropping any day with a null OHLC value
+            const dates = [], closes = [], highs = [], lows = [];
+            for (let i = 0; i < timestamps.length; i++) {
+                if (quote.close[i] == null || quote.high[i] == null || quote.low[i] == null) continue;
+                dates.push(new Date(timestamps[i] * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }));
+                closes.push(quote.close[i]);
+                highs.push(quote.high[i]);
+                lows.push(quote.low[i]);
+            }
+
+            if (closes.length < 30) {
+                resultsDiv.textContent = `Not enough historical data for ${ticker} to compute indicators.`;
+                return;
+            }
+
+            const ema20 = calculateEMASeries(closes, 20);
+            const ema50 = calculateEMASeries(closes, 50);
+            const { macdLine, signalLine, histogram } = calculateMACDSeries(closes);
+            const cci = calculateCCISeries(highs, lows, closes, 20);
+
+            const meta = result.meta;
+            const cmp = meta.regularMarketPrice;
+            const prevClose = meta.previousClose || meta.chartPreviousClose || cmp;
+            const changePercent = prevClose ? ((cmp - prevClose) / prevClose) * 100 : 0;
+
+            resultsDiv.style.display = 'none';
+            chartsDiv.style.display = 'block';
+            document.getElementById('analysis-summary').innerHTML = `
+                <div class="summary-card ${changePercent >= 0 ? 'green' : ''}" ${changePercent >= 0 ? '' : 'style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);"'}>
+                    <div class="summary-title">${ticker} — CMP (~15 min delayed)</div>
+                    <div class="summary-value">₹${cmp.toFixed(2)}</div>
+                    <div class="summary-change ${changePercent >= 0 ? 'positive' : 'negative'}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</div>
+                </div>
+            `;
+
+            destroyAnalysisCharts();
+
+            analysisCharts.price = new Chart(document.getElementById('analysis-price-chart'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { label: 'Close', data: closes, borderColor: '#667eea', borderWidth: 2, pointRadius: 0, tension: 0.1 },
+                        { label: 'EMA 20', data: ema20, borderColor: '#f59e0b', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+                        { label: 'EMA 50', data: ema50, borderColor: '#10b981', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+                    ]
+                },
+                options: { responsive: true, interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 10 } } } }
+            });
+
+            analysisCharts.macd = new Chart(document.getElementById('analysis-macd-chart'), {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { type: 'line', label: 'MACD', data: macdLine, borderColor: '#667eea', borderWidth: 1.5, pointRadius: 0 },
+                        { type: 'line', label: 'Signal', data: signalLine, borderColor: '#ef4444', borderWidth: 1.5, pointRadius: 0 },
+                        { type: 'bar', label: 'Histogram', data: histogram, backgroundColor: histogram.map(v => (v >= 0 ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)')) },
+                    ]
+                },
+                options: { responsive: true, interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 10 } } } }
+            });
+
+            analysisCharts.cci = new Chart(document.getElementById('analysis-cci-chart'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { label: 'CCI (20)', data: cci, borderColor: '#764ba2', borderWidth: 1.5, pointRadius: 0 },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: { x: { ticks: { maxTicksLimit: 10 } } },
+                }
+            });
+        }
+
 
         async function analyzeFundamental() {
             const ticker = document.getElementById('fundamental-ticker').value.toUpperCase().trim();
@@ -1681,6 +1937,40 @@
             { label: 'India VIX', yahooSymbol: '%5EINDIAVIX' },
         ];
 
+        // Gold/Silver come from USD futures (Yahoo doesn't publish direct
+        // INR-denominated commodity tickers), then converted to ₹ per 10
+        // grams — the standard Indian quoting convention — using the live
+        // USD/INR rate. Brent Crude is shown in its usual USD/barrel quote.
+        const TROY_OUNCE_TO_GRAM = 31.1035;
+        const COMMODITIES = [
+            { label: 'Gold (₹/10g)', yahooSymbol: 'GC%3DF', unit: 'gold' },
+            { label: 'Silver (₹/10g)', yahooSymbol: 'SI%3DF', unit: 'silver' },
+            { label: 'Brent Crude ($/bbl)', yahooSymbol: 'BZ%3DF', unit: 'usd' },
+        ];
+
+        const GLOBAL_INDICES = [
+            { label: 'NASDAQ (USA)', yahooSymbol: '%5EIXIC' },
+            { label: 'S&P 500 (USA)', yahooSymbol: '%5EGSPC' },
+            { label: 'Shanghai (China)', yahooSymbol: '000001.SS' },
+            { label: 'Nikkei 225 (Japan)', yahooSymbol: '%5EN225' },
+            { label: 'KOSPI (S. Korea)', yahooSymbol: '%5EKS11' },
+        ];
+
+        // NSE sector indices — today's top 5 positive movers are picked from
+        // this list, so which 5 appear can (and will) change day to day.
+        const SECTOR_INDICES = [
+            { label: 'Nifty IT', yahooSymbol: '%5ECNXIT' },
+            { label: 'Nifty Auto', yahooSymbol: '%5ECNXAUTO' },
+            { label: 'Nifty Pharma', yahooSymbol: '%5ECNXPHARMA' },
+            { label: 'Nifty FMCG', yahooSymbol: '%5ECNXFMCG' },
+            { label: 'Nifty Metal', yahooSymbol: '%5ECNXMETAL' },
+            { label: 'Nifty Energy', yahooSymbol: '%5ECNXENERGY' },
+            { label: 'Nifty Realty', yahooSymbol: '%5ECNXREALTY' },
+            { label: 'Nifty Infra', yahooSymbol: '%5ECNXINFRA' },
+            { label: 'Nifty PSU Bank', yahooSymbol: '%5ECNXPSUBANK' },
+            { label: 'Nifty Media', yahooSymbol: '%5ECNXMEDIA' },
+        ];
+
         async function fetchIndexQuote(yahooSymbol) {
             const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`;
             const data = await fetchWithProxies(yahooUrl);
@@ -1694,10 +1984,7 @@
             return { price, changePercent };
         }
 
-        function renderIndexCard(label, price, changePercent, isPositive) {
-            const bg = isPositive
-                ? 'green'
-                : 'style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);"';
+        function renderIndexCard(label, price, changePercent, isPositive, priceLabel) {
             const cls = isPositive ? 'green' : '';
             const style = isPositive ? '' : 'style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);"';
             const changeClass = isPositive ? 'positive' : 'negative';
@@ -1705,43 +1992,90 @@
             return `
                 <div class="summary-card ${cls}" ${style}>
                     <div class="summary-title">${label}</div>
-                    <div class="summary-value">${price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                    <div class="summary-value">${priceLabel || price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
                     <div class="summary-change ${changeClass}">${sign}${changePercent.toFixed(2)}%</div>
                 </div>
             `;
         }
 
-        async function loadMarketOverview() {
-            const container = document.getElementById('market-indices');
-            container.innerHTML = '<div class="summary-card"><div class="summary-title">Loading market data…</div></div>';
+        function unavailableCard(label) {
+            return `<div class="summary-card" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);">
+                       <div class="summary-title">${label}</div>
+                       <div class="summary-value">—</div>
+                       <div class="summary-change neutral">unavailable</div>
+                     </div>`;
+        }
 
-            const results = await Promise.all(
-                MARKET_INDICES.map(async (idx) => {
+        async function fetchIndexList(list) {
+            return Promise.all(
+                list.map(async (idx) => {
                     try {
                         const q = await fetchIndexQuote(idx.yahooSymbol);
-                        return { label: idx.label, price: q.price, changePercent: q.changePercent, live: true };
+                        return { label: idx.label, price: q.price, changePercent: q.changePercent, live: true, unit: idx.unit };
                     } catch (error) {
-                        console.warn(`Index fetch failed for ${idx.label}, using placeholder:`, error.message);
-                        return { label: idx.label, price: 0, changePercent: 0, live: false };
+                        console.warn(`Index fetch failed for ${idx.label}:`, error.message);
+                        return { label: idx.label, live: false };
                     }
                 })
             );
+        }
 
-            const anyLive = results.some(r => r.live);
+        async function loadMarketOverview() {
+            const indicesContainer = document.getElementById('market-indices');
+            const commoditiesContainer = document.getElementById('market-commodities');
+            const globalContainer = document.getElementById('market-global');
+            const sectorContainer = document.getElementById('market-sectors');
+
+            [indicesContainer, commoditiesContainer, globalContainer, sectorContainer].forEach(el => {
+                if (el) el.innerHTML = '<div class="summary-card"><div class="summary-title">Loading…</div></div>';
+            });
+
+            // Indian indices
+            const indexResults = await fetchIndexList(MARKET_INDICES);
+            const anyLive = indexResults.some(r => r.live);
             const heading = document.querySelector('#market .card h2');
             if (heading) {
-                heading.textContent = anyLive ? 'Market Overview (~15 min delayed)' : 'Market Overview (data unavailable)';
+                heading.textContent = anyLive ? 'Indian Indices (~15 min delayed)' : 'Indian Indices (data unavailable)';
             }
-
-            container.innerHTML = results.map(r =>
-                r.live
-                    ? renderIndexCard(r.label, r.price, r.changePercent, r.changePercent >= 0)
-                    : `<div class="summary-card" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);">
-                         <div class="summary-title">${r.label}</div>
-                         <div class="summary-value">—</div>
-                         <div class="summary-change neutral">unavailable</div>
-                       </div>`
+            indicesContainer.innerHTML = indexResults.map(r =>
+                r.live ? renderIndexCard(r.label, r.price, r.changePercent, r.changePercent >= 0) : unavailableCard(r.label)
             ).join('');
+
+            // Commodities — Gold/Silver converted from USD/oz futures to ₹/10g
+            let usdInrRate = null;
+            try {
+                const rate = await fetchIndexQuote('INR%3DX'); // USD/INR
+                usdInrRate = rate.price;
+            } catch (error) {
+                console.warn('USD/INR fetch failed, gold/silver will show unconverted:', error.message);
+            }
+            const commodityResults = await fetchIndexList(COMMODITIES);
+            commoditiesContainer.innerHTML = commodityResults.map(r => {
+                if (!r.live) return unavailableCard(r.label);
+                if ((r.unit === 'gold' || r.unit === 'silver') && usdInrRate) {
+                    const pricePer10g = (r.price / TROY_OUNCE_TO_GRAM) * 10 * usdInrRate;
+                    return renderIndexCard(r.label, r.price, r.changePercent, r.changePercent >= 0,
+                        `₹${pricePer10g.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`);
+                }
+                return renderIndexCard(r.label, r.price, r.changePercent, r.changePercent >= 0,
+                    `$${r.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}`);
+            }).join('');
+
+            // Global markets
+            const globalResults = await fetchIndexList(GLOBAL_INDICES);
+            globalContainer.innerHTML = globalResults.map(r =>
+                r.live ? renderIndexCard(r.label, r.price, r.changePercent, r.changePercent >= 0) : unavailableCard(r.label)
+            ).join('');
+
+            // Top 5 positive Indian sectors today
+            const sectorResults = await fetchIndexList(SECTOR_INDICES);
+            const topSectors = sectorResults
+                .filter(r => r.live)
+                .sort((a, b) => b.changePercent - a.changePercent)
+                .slice(0, 5);
+            sectorContainer.innerHTML = topSectors.length
+                ? topSectors.map(r => renderIndexCard(r.label, r.price, r.changePercent, r.changePercent >= 0)).join('')
+                : '<div class="summary-card" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);"><div class="summary-title">Sector data unavailable right now</div></div>';
         }
 
 
