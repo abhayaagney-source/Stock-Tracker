@@ -4,6 +4,7 @@
         const appState = {
             portfolio: [],
             watchlist: [],
+            watchlistHistory: [],
             history: [],
             alerts: [],
             editingIndex: -1, // -1 means adding new stock, >=0 means editing existing
@@ -98,6 +99,7 @@
                         Object.assign(appState, {
                             portfolio: saved.portfolio || [],
                             watchlist: saved.watchlist || [],
+                            watchlistHistory: saved.watchlistHistory || [],
                             history: saved.history || [],
                             alerts: saved.alerts || [],
                             userFundamentalCriteria: saved.userFundamentalCriteria || appState.userFundamentalCriteria,
@@ -117,6 +119,7 @@
                     Object.assign(appState, {
                         portfolio: saved.portfolio || [],
                         watchlist: saved.watchlist || [],
+                        watchlistHistory: saved.watchlistHistory || [],
                         history: saved.history || [],
                         alerts: saved.alerts || [],
                         userFundamentalCriteria: saved.userFundamentalCriteria || appState.userFundamentalCriteria,
@@ -132,6 +135,7 @@
             const payload = {
                 portfolio: appState.portfolio,
                 watchlist: appState.watchlist,
+                watchlistHistory: appState.watchlistHistory,
                 history: appState.history,
                 alerts: appState.alerts,
                 userFundamentalCriteria: appState.userFundamentalCriteria,
@@ -234,6 +238,8 @@
                 renderHistoryTable();
             } else if (tabId === 'watchlist') {
                 renderWatchlistTable();
+            } else if (tabId === 'watchlist-history') {
+                renderWatchlistHistoryTable();
             } else if (tabId === 'alerts') {
                 renderAlerts();
             } else if (tabId === 'market') {
@@ -480,7 +486,6 @@
             document.getElementById('buy-price').value = '';
             document.getElementById('sector').value = '';
             document.getElementById('market-cap').value = 'Large';
-            document.getElementById('latest-high').value = '';
             document.getElementById('down-percent').value = '';
             document.getElementById('target1').value = '';
             document.getElementById('target2').value = '';
@@ -497,7 +502,6 @@
             const buyPrice = parseFloat(document.getElementById('buy-price').value);
             const sector = document.getElementById('sector').value.trim();
             const marketCap = document.getElementById('market-cap').value;
-            const latestHigh = parseFloat(document.getElementById('latest-high').value) || 0;
             const downPercent = parseFloat(document.getElementById('down-percent').value) || 0;
             const target1 = parseFloat(document.getElementById('target1').value) || 0;
             const target2 = parseFloat(document.getElementById('target2').value) || 0;
@@ -524,7 +528,6 @@
                 buyPrice,
                 sector,
                 marketCap,
-                latestHigh,
                 downPercent,
                 target1,
                 target2,
@@ -536,6 +539,13 @@
                 changePercent: apiData.changePercent,
                 totalInvestment: quantity * buyPrice,
             };
+
+            if (appState.editingIndex === -1) {
+                // Latest High starts tracking from the higher of buy price / current
+                // price, then only ever increases automatically as prices update —
+                // see refreshAllPrices().
+                stockData.latestHigh = Math.max(buyPrice, apiData.price || buyPrice);
+            }
 
             if (appState.editingIndex === -1) {
                 appState.portfolio.push(stockData);
@@ -559,7 +569,6 @@
             document.getElementById('buy-price').value = stock.buyPrice;
             document.getElementById('sector').value = stock.sector || '';
             document.getElementById('market-cap').value = stock.marketCap || 'Large';
-            document.getElementById('latest-high').value = stock.latestHigh || '';
             document.getElementById('down-percent').value = stock.downPercent || '';
             document.getElementById('target1').value = stock.target1 || '';
             document.getElementById('target2').value = stock.target2 || '';
@@ -572,36 +581,59 @@
 
         function sellStock(index) {
             const stock = appState.portfolio[index];
-            const currentInvestment = stock.buyPrice * stock.quantity;
-            
-            // Mock sale at current price
-            const soldPrice = stock.price; 
-            const pnlValue = (soldPrice * stock.quantity) - currentInvestment;
-            const pnlPercent = (pnlValue / currentInvestment) * 100;
+
+            const qtyInput = prompt(`How many shares of ${stock.ticker} are you selling? (You hold ${stock.quantity})`, stock.quantity);
+            if (qtyInput === null) return; // cancelled
+            const soldQty = parseInt(qtyInput);
+            if (isNaN(soldQty) || soldQty <= 0 || soldQty > stock.quantity) {
+                showNotification(`Please enter a valid quantity between 1 and ${stock.quantity}.`, true);
+                return;
+            }
+
+            const priceInput = prompt(`Sold price per share for ${stock.ticker}? (Current CMP: ₹${stock.price.toFixed(2)})`, stock.price.toFixed(2));
+            if (priceInput === null) return; // cancelled
+            const soldPrice = parseFloat(priceInput);
+            if (isNaN(soldPrice) || soldPrice <= 0) {
+                showNotification('Please enter a valid sold price.', true);
+                return;
+            }
+
+            const investmentForSoldPortion = stock.buyPrice * soldQty;
+            const pnlValue = (soldPrice * soldQty) - investmentForSoldPortion;
+            const pnlPercent = (pnlValue / investmentForSoldPortion) * 100;
             const soldDate = new Date().toISOString().split('T')[0];
             const daysHeld = calculateDaysHeld(stock.buyDate, soldDate);
+            const isFullSale = soldQty >= stock.quantity;
 
-            if (confirm(`Are you sure you want to mark ${stock.ticker} (${stock.quantity} shares) as sold at ₹${soldPrice.toFixed(2)}? P&L: ${formatCurrency(pnlValue)}`)) {
-                
+            if (confirm(`Confirm: mark ${soldQty} of ${stock.quantity} share(s) of ${stock.ticker} as sold at ₹${soldPrice.toFixed(2)}? P&L: ${formatCurrency(pnlValue)}`)) {
+
                 const historyEntry = {
                     ticker: stock.ticker,
                     buyDate: stock.buyDate,
                     soldDate: soldDate,
                     daysHeld: daysHeld,
-                    quantity: stock.quantity,
+                    quantity: soldQty,
                     buyPrice: stock.buyPrice,
                     soldPrice: soldPrice,
                     pnlValue: pnlValue,
                     pnlPercent: pnlPercent,
                     marketCap: stock.marketCap || 'N/A',
                     sector: stock.sector || 'N/A',
-                    remarks: `Sold at Market Price`,
+                    remarks: isFullSale ? 'Sold' : `Partial sale (${soldQty} of ${stock.quantity} shares)`,
                 };
                 appState.history.unshift(historyEntry);
-                appState.portfolio.splice(index, 1);
+
+                if (isFullSale) {
+                    appState.portfolio.splice(index, 1);
+                } else {
+                    // Reduce the holding by the sold quantity; buy price, latest
+                    // high, targets etc. stay as-is for the remaining shares.
+                    stock.quantity -= soldQty;
+                }
+
                 saveToLocalStorage();
                 loadPortfolio();
-                showNotification(`Stock ${stock.ticker} sold and transaction recorded in History.`);
+                showNotification(`${soldQty} share(s) of ${stock.ticker} sold and recorded in History.`);
             }
         }
 
@@ -643,6 +675,14 @@
                     stock.longName = data.longName;
                     stock.previousClose = data.previousClose;
                     stock.changePercent = data.changePercent;
+
+                    // Latest High auto-tracks the highest price seen since buy —
+                    // it only ever moves up, even if CMP later dips back down.
+                    if (typeof stock.latestHigh !== 'number' || stock.latestHigh <= 0) {
+                        stock.latestHigh = Math.max(stock.buyPrice, stock.price);
+                    } else if (stock.price > stock.latestHigh) {
+                        stock.latestHigh = stock.price;
+                    }
                 }
             });
 
@@ -1032,6 +1072,8 @@
             const breakoutPrice = parseFloat(document.getElementById('watchlist-breakout-price').value) || 0;
             const macdSettings = getCheckedValues('macd');
             const emaSettings = getCheckedValues('ema');
+            const cci1Settings = getCheckedValues('cci1');
+            const cci2Settings = getCheckedValues('cci2');
             
             if (!symbol || !entryDate) {
                 showNotification('Please enter Ticker and Entry Date.', true);
@@ -1050,9 +1092,12 @@
                 symbol,
                 entryDate,
                 breakoutPrice,
+                entryPrice: apiData.price, // captured once, at add-time, kept fixed
                 macd: macdSettings,
                 ema: emaSettings,
-                price: apiData.price,
+                cci1: cci1Settings,
+                cci2: cci2Settings,
+                price: apiData.price, // live CMP, overwritten on every refresh
                 historic: apiData.historic,
             };
 
@@ -1095,47 +1140,156 @@
             let html = '';
 
             if (appState.watchlist.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="19" class="neutral" style="text-align: center;">No stocks in watchlist. Add a new stock above.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="32" class="neutral" style="text-align: center;">No stocks in watchlist. Add a new stock above.</td></tr>';
                 return;
             }
 
             appState.watchlist.forEach((stock, i) => {
                 const cmp = stock.price;
-                const breakoutRefPrice = stock.breakoutPrice > 0 ? stock.breakoutPrice : stock.price; // Use CMP if Breakout is not set for P&L calculation
-                const pnlChange = breakoutRefPrice > 0 ? ((cmp - breakoutRefPrice) / breakoutRefPrice) * 100 : 0;
-                
-                // Mock historical data structure for rendering
-                const historic = stock.historic || { 
+
+                // % Change (Entry Date): CMP vs the price captured when the stock was added.
+                const entryPrice = stock.entryPrice > 0 ? stock.entryPrice : cmp;
+                const entryChange = entryPrice > 0 ? ((cmp - entryPrice) / entryPrice) * 100 : 0;
+
+                // % Change (Breakout Price): CMP vs the breakout level you set, if any.
+                const hasBreakout = stock.breakoutPrice > 0;
+                const breakoutChange = hasBreakout ? ((cmp - stock.breakoutPrice) / stock.breakoutPrice) * 100 : null;
+
+                const historic = stock.historic || {
                     price3d: 0, price1w: 0, price24d: 0,
                     volume3d: 0, volume1w: 0, volume24d: 0,
                 };
-
 
                 html += `
                     <tr>
                         <td>${stock.entryDate}</td>
                         <td>${stock.symbol}</td>
+                        <td>${formatCurrency(cmp)}</td>
+                        <td>${formatCurrency(stock.breakoutPrice)}</td>
+                        <td class="${getPnLClass(entryChange)}">${formatPercentage(entryChange)}</td>
+                        <td class="${hasBreakout ? getPnLClass(breakoutChange) : 'neutral'}">${hasBreakout ? formatPercentage(breakoutChange) : '-'}</td>
                         <td class="${getPnLClass(historic.price3d)}">${formatPercentage(historic.price3d)}</td>
                         <td class="${getPnLClass(historic.price1w)}">${formatPercentage(historic.price1w)}</td>
                         <td class="${getPnLClass(historic.price24d)}">${formatPercentage(historic.price24d)}</td>
-                        <td>${formatCurrency(cmp)}</td>
-                        <td>${formatCurrency(stock.breakoutPrice)}</td>
-                        <td class="${getPnLClass(pnlChange)}">${formatPercentage(pnlChange)}</td>
                         <td>${formatPercentage(historic.volume3d)}</td>
                         <td>${formatPercentage(historic.volume1w)}</td>
                         <td>${formatPercentage(historic.volume24d)}</td>
+                        <td>${renderCheckboxStatus(stock, 'ema', 'W')}</td>
+                        <td>${renderCheckboxStatus(stock, 'ema', 'D')}</td>
+                        <td>${renderCheckboxStatus(stock, 'ema', '3h')}</td>
+                        <td>${renderCheckboxStatus(stock, 'ema', '1h')}</td>
                         <td>${renderCheckboxStatus(stock, 'macd', 'A')}</td>
                         <td>${renderCheckboxStatus(stock, 'macd', 'S')}</td>
                         <td>${renderCheckboxStatus(stock, 'macd', 'Q')}</td>
                         <td>${renderCheckboxStatus(stock, 'macd', 'M')}</td>
                         <td>${renderCheckboxStatus(stock, 'macd', 'W')}</td>
-                        <td>${renderCheckboxStatus(stock, 'ema', 'M')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', 'M')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', 'W')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', 'D')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', '3h')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', '1h')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'A')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'S')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'Q')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'M')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'W')}</td>
+                        <td class="action-buttons">
+                            <button class="btn btn-success btn-small" onclick="markWatchlistBought(${i})">Bought</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteWatchlistStock(${i})">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // Moves a watchlist stock into the Watchlist History tab, recording
+        // the date it was marked "Bought". Removes it from the active
+        // watchlist, since it's no longer something you're just watching.
+        function markWatchlistBought(index) {
+            const stock = appState.watchlist[index];
+            if (!confirm(`Mark ${stock.symbol} as bought? It will move to the "Watchlist History" tab.`)) {
+                return;
+            }
+
+            const historyEntry = {
+                ...stock,
+                boughtDate: new Date().toISOString().split('T')[0],
+            };
+            appState.watchlistHistory.unshift(historyEntry);
+            appState.watchlist.splice(index, 1);
+
+            saveToLocalStorage();
+            renderWatchlistTable();
+            showNotification(`${stock.symbol} marked as bought and moved to Watchlist History.`);
+        }
+
+        function deleteWatchlistHistoryEntry(index) {
+            const entry = appState.watchlistHistory[index];
+            if (confirm(`Remove ${entry.symbol} from Watchlist History? This cannot be undone.`)) {
+                appState.watchlistHistory.splice(index, 1);
+                saveToLocalStorage();
+                renderWatchlistHistoryTable();
+                showNotification(`${entry.symbol} removed from Watchlist History.`);
+            }
+        }
+
+        function renderWatchlistHistoryTable() {
+            const tbody = document.getElementById('watchlist-history-tbody');
+            let html = '';
+
+            if (appState.watchlistHistory.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="33" class="neutral" style="text-align: center;">No stocks marked as bought yet. Use the "Bought" button on the Watchlist tab.</td></tr>';
+                return;
+            }
+
+            appState.watchlistHistory.forEach((stock, i) => {
+                const cmp = stock.price;
+                const entryPrice = stock.entryPrice > 0 ? stock.entryPrice : cmp;
+                const entryChange = entryPrice > 0 ? ((cmp - entryPrice) / entryPrice) * 100 : 0;
+                const hasBreakout = stock.breakoutPrice > 0;
+                const breakoutChange = hasBreakout ? ((cmp - stock.breakoutPrice) / stock.breakoutPrice) * 100 : null;
+                const historic = stock.historic || {
+                    price3d: 0, price1w: 0, price24d: 0,
+                    volume3d: 0, volume1w: 0, volume24d: 0,
+                };
+
+                html += `
+                    <tr>
+                        <td>${stock.boughtDate || '-'}</td>
+                        <td>${stock.entryDate}</td>
+                        <td>${stock.symbol}</td>
+                        <td>${formatCurrency(cmp)}</td>
+                        <td>${formatCurrency(stock.breakoutPrice)}</td>
+                        <td class="${getPnLClass(entryChange)}">${formatPercentage(entryChange)}</td>
+                        <td class="${hasBreakout ? getPnLClass(breakoutChange) : 'neutral'}">${hasBreakout ? formatPercentage(breakoutChange) : '-'}</td>
+                        <td class="${getPnLClass(historic.price3d)}">${formatPercentage(historic.price3d)}</td>
+                        <td class="${getPnLClass(historic.price1w)}">${formatPercentage(historic.price1w)}</td>
+                        <td class="${getPnLClass(historic.price24d)}">${formatPercentage(historic.price24d)}</td>
+                        <td>${formatPercentage(historic.volume3d)}</td>
+                        <td>${formatPercentage(historic.volume1w)}</td>
+                        <td>${formatPercentage(historic.volume24d)}</td>
                         <td>${renderCheckboxStatus(stock, 'ema', 'W')}</td>
                         <td>${renderCheckboxStatus(stock, 'ema', 'D')}</td>
                         <td>${renderCheckboxStatus(stock, 'ema', '3h')}</td>
                         <td>${renderCheckboxStatus(stock, 'ema', '1h')}</td>
+                        <td>${renderCheckboxStatus(stock, 'macd', 'A')}</td>
+                        <td>${renderCheckboxStatus(stock, 'macd', 'S')}</td>
+                        <td>${renderCheckboxStatus(stock, 'macd', 'Q')}</td>
+                        <td>${renderCheckboxStatus(stock, 'macd', 'M')}</td>
+                        <td>${renderCheckboxStatus(stock, 'macd', 'W')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', 'M')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', 'W')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', 'D')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', '3h')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci1', '1h')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'A')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'S')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'Q')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'M')}</td>
+                        <td>${renderCheckboxStatus(stock, 'cci2', 'W')}</td>
                         <td class="action-buttons">
-                            <button class="btn btn-danger btn-small" onclick="deleteWatchlistStock(${i})">Remove</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteWatchlistHistoryEntry(${i})">Delete</button>
                         </td>
                     </tr>
                 `;
