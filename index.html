@@ -170,6 +170,11 @@
                         <div class="summary-value" id="total-holdings">0</div>
                         <div class="summary-change">Stocks</div>
                     </div>
+                    <div class="summary-card">
+                        <div class="summary-title">Today's P&L</div>
+                        <div class="summary-value" id="today-pnl">₹0</div>
+                        <div class="summary-change" id="today-pnl-percent">0%</div>
+                    </div>
                 </div>
             </div>
 
@@ -244,25 +249,25 @@
                     <table class="portfolio-table">
                         <thead>
                             <tr>
-                                <th>Ticker</th>
-                                <th>Buy Date</th>
-                                <th>Quantity</th>
-                                <th>Buy Price</th>
-                                <th>CMP</th>
-                                <th>% Change<br>(Today)</th>
-                                <th>Total<br>Investment</th>
-                                <th>Current<br>Value</th>
-                                <th>P&L (₹)</th>
-                                <th>P&L (%)</th>
-                                <th>No of<br>Days</th>
-                                <th>Latest High</th>
-                                <th>% Down<br>(Rolling SL)</th>
+                                <th class="sortable" data-col="0" onclick="sortTableByColumn('portfolio-tbody', 0, this)">Ticker <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="1" onclick="sortTableByColumn('portfolio-tbody', 1, this)">Buy Date <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="2" onclick="sortTableByColumn('portfolio-tbody', 2, this)">Quantity <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="3" onclick="sortTableByColumn('portfolio-tbody', 3, this)">Buy Price <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="4" onclick="sortTableByColumn('portfolio-tbody', 4, this)">CMP <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="5" onclick="sortTableByColumn('portfolio-tbody', 5, this)">% Change<br>(Today) <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="6" onclick="sortTableByColumn('portfolio-tbody', 6, this)">Total<br>Investment <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="7" onclick="sortTableByColumn('portfolio-tbody', 7, this)">Current<br>Value <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="8" onclick="sortTableByColumn('portfolio-tbody', 8, this)">P&L (₹) <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="9" onclick="sortTableByColumn('portfolio-tbody', 9, this)">P&L (%) <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="10" onclick="sortTableByColumn('portfolio-tbody', 10, this)">No of<br>Days <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="11" onclick="sortTableByColumn('portfolio-tbody', 11, this)">Latest High <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="12" onclick="sortTableByColumn('portfolio-tbody', 12, this)">% Down<br>(Rolling SL) <span class="sort-arrow">⇅</span></th>
                                 <th>Target<br>Level 1</th>
                                 <th>Target<br>Level 2</th>
                                 <th>Target<br>Level 3</th>
                                 <th>Time Interval</th>
-                                <th>Sector</th>
-                                <th>Market Cap</th>
+                                <th class="sortable" data-col="17" onclick="sortTableByColumn('portfolio-tbody', 17, this)">Sector <span class="sort-arrow">⇅</span></th>
+                                <th class="sortable" data-col="18" onclick="sortTableByColumn('portfolio-tbody', 18, this)">Market Cap <span class="sort-arrow">⇅</span></th>
                                 <th>Alert Mode</th>
                                 <th>Actions</th>
                             </tr>
@@ -342,12 +347,14 @@
                     <table class="portfolio-table" id="watchlist-table">
                         <thead>
                             <tr>
-                                <th rowspan="2">Entry Date</th>
-                                <th rowspan="2">Ticker</th>
-                                <th rowspan="2">CMP (Price)</th>
-                                <th rowspan="2">Breakout<br>Price (₹)</th>
-                                <th rowspan="2">% Change<br>(Entry Date)</th>
-                                <th rowspan="2">% Change<br>(Breakout Price)</th>
+                                <th rowspan="2" class="sortable" data-col="0" onclick="sortTableByColumn('watchlist-tbody', 0, this)">Entry Date <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="1" onclick="sortTableByColumn('watchlist-tbody', 1, this)">Ticker <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="2" onclick="sortTableByColumn('watchlist-tbody', 2, this)">CMP (Price) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="3" onclick="sortTableByColumn('watchlist-tbody', 3, this)">Breakout<br>Price (₹) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="4" onclick="sortTableByColumn('watchlist-tbody', 4, this)">% Change<br>(Entry Date) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="5" onclick="sortTableByColumn('watchlist-tbody', 5, this)">% Change<br>(Breakout Price) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="6" onclick="sortTableByColumn('watchlist-tbody', 6, this)">% Change<br>(Today) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="7" onclick="sortTableByColumn('watchlist-tbody', 7, this)">% Change<br>(Yesterday) <span class="sort-arrow">⇅</span></th>
                                 <th colspan="3">CMP % Change</th>
                                 <th colspan="3">Volume %</th>
                                 <th colspan="4">EMA (Indicator)</th>
@@ -399,13 +406,15 @@
                     <table class="portfolio-table" id="watchlist-history-table">
                         <thead>
                             <tr>
-                                <th rowspan="2">Bought Date</th>
-                                <th rowspan="2">Entry Date</th>
-                                <th rowspan="2">Ticker</th>
-                                <th rowspan="2">CMP (Price)</th>
-                                <th rowspan="2">Breakout<br>Price (₹)</th>
-                                <th rowspan="2">% Change<br>(Entry Date)</th>
-                                <th rowspan="2">% Change<br>(Breakout Price)</th>
+                                <th rowspan="2" class="sortable" data-col="0" onclick="sortTableByColumn('watchlist-history-tbody', 0, this)">Bought Date <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="1" onclick="sortTableByColumn('watchlist-history-tbody', 1, this)">Entry Date <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="2" onclick="sortTableByColumn('watchlist-history-tbody', 2, this)">Ticker <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="3" onclick="sortTableByColumn('watchlist-history-tbody', 3, this)">CMP (Price) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="4" onclick="sortTableByColumn('watchlist-history-tbody', 4, this)">Breakout<br>Price (₹) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="5" onclick="sortTableByColumn('watchlist-history-tbody', 5, this)">% Change<br>(Entry Date) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="6" onclick="sortTableByColumn('watchlist-history-tbody', 6, this)">% Change<br>(Breakout Price) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="7" onclick="sortTableByColumn('watchlist-history-tbody', 7, this)">% Change<br>(Today) <span class="sort-arrow">⇅</span></th>
+                                <th rowspan="2" class="sortable" data-col="8" onclick="sortTableByColumn('watchlist-history-tbody', 8, this)">% Change<br>(Yesterday) <span class="sort-arrow">⇅</span></th>
                                 <th colspan="3">CMP % Change</th>
                                 <th colspan="3">Volume %</th>
                                 <th colspan="4">EMA (Indicator)</th>
@@ -467,16 +476,21 @@
                 <div id="analysis-charts" style="display:none;">
                     <div id="analysis-summary" style="margin-bottom:15px;"></div>
                     <div style="margin-bottom:25px;">
-                        <h3 style="margin-bottom:10px;">Price with EMA 20 / EMA 50</h3>
+                        <h3 style="margin-bottom:10px;">Price with EMA 20 / 50 / 150 / 200</h3>
                         <canvas id="analysis-price-chart" height="90"></canvas>
                     </div>
                     <div style="margin-bottom:25px;">
                         <h3 style="margin-bottom:10px;">MACD (12, 26, 9)</h3>
                         <canvas id="analysis-macd-chart" height="70"></canvas>
                     </div>
-                    <div>
-                        <h3 style="margin-bottom:10px;">CCI (20)</h3>
+                    <div style="margin-bottom:25px;">
+                        <h3 style="margin-bottom:10px;">CCI (33, 72, 150, 200)</h3>
                         <canvas id="analysis-cci-chart" height="70"></canvas>
+                    </div>
+                    <div>
+                        <h3 style="margin-bottom:10px;">Coppock Curve</h3>
+                        <p style="color:#6b7280; font-size:0.85em; margin-bottom:10px;">Standard formula: WMA(10) of [ROC(14) + ROC(11)]. The 5-period list you gave (33,72,152,200,369) doesn't match the standard 2-ROC Coppock formula — this uses the conventional version. Let me know if you actually want a custom multi-period variant instead.</p>
+                        <canvas id="analysis-coppock-chart" height="70"></canvas>
                     </div>
                 </div>
             </div>
@@ -632,6 +646,21 @@
                 <p style="color:#6b7280; margin-bottom:15px;">Ranked by today's % change — the leaders can shift day to day.</p>
                 <div class="summary-grid" id="market-sectors">
                     </div>
+            </div>
+            <div class="card">
+                <h2>Top Movers — Your Tracked Stocks</h2>
+                <p style="color:#6b7280; margin-bottom:15px;">Ranked from your own Portfolio + Watchlist tickers only — a free live screen of the full NSE/BSE market (1,600+ stocks) isn't available without a paid data source, so this is scoped to what you're already tracking.</p>
+                <h3 style="margin: 15px 0 10px;">Last Quarter (3 months)</h3>
+                <div class="summary-grid" id="market-top-quarter"></div>
+                <h3 style="margin: 15px 0 10px;">Last Month</h3>
+                <div class="summary-grid" id="market-top-month"></div>
+                <h3 style="margin: 15px 0 10px;">Last Week</h3>
+                <div class="summary-grid" id="market-top-week"></div>
+            </div>
+            <div class="card">
+                <h2>Top 5 Global Sectors — Last Quarter</h2>
+                <p style="color:#6b7280; margin-bottom:15px;">Ranked by 3-month return across the major US sector ETFs (SPDR Select Sector funds) — the closest free, reliable proxy for "global sectors."</p>
+                <div class="summary-grid" id="market-global-sectors"></div>
             </div>
         </div>
     </div>
