@@ -367,6 +367,46 @@
             return values;
         }
 
+        // Generic click-to-sort for table columns. Works directly on the
+        // rendered rows (not the underlying data), so it's simple and
+        // table-agnostic, but sort order resets on the next data refresh.
+        function sortTableByColumn(tbodyId, colIndex, headerEl) {
+            const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            if (rows.length === 0 || !rows[0].cells[colIndex]) return;
+
+            const newDir = headerEl.getAttribute('data-sort-dir') === 'asc' ? 'desc' : 'asc';
+
+            const table = headerEl.closest('table');
+            table.querySelectorAll('th.sortable').forEach(th => {
+                th.removeAttribute('data-sort-dir');
+                th.classList.remove('sort-active');
+                const arrow = th.querySelector('.sort-arrow');
+                if (arrow) arrow.textContent = '⇅';
+            });
+            headerEl.setAttribute('data-sort-dir', newDir);
+            headerEl.classList.add('sort-active');
+            const arrow = headerEl.querySelector('.sort-arrow');
+            if (arrow) arrow.textContent = newDir === 'asc' ? '▲' : '▼';
+
+            const parseCell = (row) => {
+                const text = row.cells[colIndex].textContent.trim();
+                const numeric = parseFloat(text.replace(/[₹,%+]/g, ''));
+                return isNaN(numeric) ? text.toLowerCase() : numeric;
+            };
+
+            rows.sort((a, b) => {
+                const va = parseCell(a), vb = parseCell(b);
+                if (typeof va === 'number' && typeof vb === 'number') {
+                    return newDir === 'asc' ? va - vb : vb - va;
+                }
+                return newDir === 'asc' ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
         function renderCheckboxStatus(stock, type, key) {
             if (!stock[type]) return '<span>-</span>';
             const isChecked = stock[type][key];
@@ -454,6 +494,17 @@
             return ((currentPrice - past) / past) * 100;
         }
 
+        // % change between two past closes (e.g. yesterday's day-change),
+        // as opposed to percentChangeFromCloses which always compares to
+        // today's live price.
+        function pctChangeBetweenCloses(closes, daysAgoOld, daysAgoNew) {
+            if (!closes || closes.length <= daysAgoOld) return 0;
+            const oldVal = closes[closes.length - 1 - daysAgoOld];
+            const newVal = closes[closes.length - 1 - daysAgoNew];
+            if (!oldVal) return 0;
+            return ((newVal - oldVal) / oldVal) * 100;
+        }
+
         function generateMockPriceData(symbol) {
             const basePrice = 100 + Math.random() * 2000;
             const change = (Math.random() - 0.5) * basePrice * 0.05;
@@ -475,6 +526,8 @@
                     volume3d: (Math.random() - 0.5) * 10,
                     volume1w: (Math.random() - 0.5) * 15,
                     volume24d: (Math.random() - 0.5) * 25,
+                    changeToday: (change / (basePrice - change)) * 100,
+                    changeYesterday: (Math.random() - 0.5) * 4,
                 }
             };
         }
@@ -518,6 +571,10 @@
                         volume3d: percentChangeFromCloses(volumes, 3, currentVolume),
                         volume1w: percentChangeFromCloses(volumes, 5, currentVolume),
                         volume24d: percentChangeFromCloses(volumes, volumes.length - 1, currentVolume),
+                        // Today = live CMP vs previous close (same as changePercent above).
+                        changeToday: prevClose ? (change / prevClose) * 100 : 0,
+                        // Yesterday = yesterday's close vs the day before that.
+                        changeYesterday: pctChangeBetweenCloses(closes, 2, 1),
                     }
                 };
             } catch (error) {
@@ -790,9 +847,13 @@
             let currentValue = 0;
             let totalHoldings = appState.portfolio.length;
 
+            let todayPnL = 0;
+            let yesterdayValue = 0;
+
             if (appState.portfolio.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="21" class="neutral" style="text-align: center;">No stocks in portfolio. Add a new holding above.</td></tr>';
-                renderPortfolioSummary(0, 0, 0, 0, 0);
+                renderPortfolioSummary(0, 0, 0, 0, 0, 0, 0);
+                syncDashboard();
                 return;
             }
             
@@ -805,6 +866,10 @@
                 
                 totalInvested += investment;
                 currentValue += currentVal;
+
+                const prevClose = stock.previousClose || stock.price;
+                todayPnL += (stock.price - prevClose) * stock.quantity;
+                yesterdayValue += prevClose * stock.quantity;
 
                 const todayChange = stock.price - stock.previousClose;
                 const todayChangePercent = stock.changePercent;
@@ -860,11 +925,23 @@
 
             const totalPnL = currentValue - totalInvested;
             const totalPnLPercent = (totalPnL / (totalInvested || 1)) * 100;
+            const todayPnLPercent = (todayPnL / (yesterdayValue || 1)) * 100;
             
-            renderPortfolioSummary(totalInvested, currentValue, totalPnL, totalPnLPercent, totalHoldings);
+            renderPortfolioSummary(totalInvested, currentValue, totalPnL, totalPnLPercent, totalHoldings, todayPnL, todayPnLPercent);
+
+            // Keep the Dashboard tab's numbers in sync every time portfolio
+            // data changes — not just when you happen to click into it.
+            syncDashboard();
         }
 
-        function renderPortfolioSummary(invested, current, pnl, pnlPercent, holdings) {
+        function syncDashboard() {
+            updateDashboardSummary();
+            renderDashboardCharts();
+            updatePerformanceDistribution();
+            updateMarketPrediction();
+        }
+
+        function renderPortfolioSummary(invested, current, pnl, pnlPercent, holdings, todayPnL, todayPnLPercent) {
             document.getElementById('total-invested').textContent = formatCurrency(invested);
             document.getElementById('current-value').textContent = formatCurrency(current);
             const pnlElement = document.getElementById('total-pnl');
@@ -874,6 +951,15 @@
             pnlPercentElement.textContent = formatPercentage(pnlPercent);
             pnlPercentElement.className = `summary-change ${getPnLClass(pnl)}`;
             document.getElementById('total-holdings').textContent = holdings;
+
+            const todayPnLElement = document.getElementById('today-pnl');
+            const todayPnLPercentElement = document.getElementById('today-pnl-percent');
+            if (todayPnLElement && todayPnLPercentElement) {
+                todayPnLElement.textContent = formatCurrency(todayPnL || 0);
+                todayPnLElement.className = `summary-value ${getPnLClass(todayPnL || 0)}`;
+                todayPnLPercentElement.textContent = formatPercentage(todayPnLPercent || 0);
+                todayPnLPercentElement.className = `summary-change ${getPnLClass(todayPnL || 0)}`;
+            }
         }
 
 
@@ -1206,6 +1292,14 @@
                 if (data.success || appState.apiStatus === 'offline') {
                     stock.price = data.price;
                     stock.historic = data.historic;
+
+                    // Backfill for stocks added before entryPrice existed —
+                    // without this they'd be stuck comparing CMP to itself
+                    // (always 0%). From here on this stays fixed, same as
+                    // normal entries, and % Change (Entry Date) will move.
+                    if (!(stock.entryPrice > 0)) {
+                        stock.entryPrice = data.price;
+                    }
                 }
             });
 
@@ -1219,7 +1313,7 @@
             let html = '';
 
             if (appState.watchlist.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="32" class="neutral" style="text-align: center;">No stocks in watchlist. Add a new stock above.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="34" class="neutral" style="text-align: center;">No stocks in watchlist. Add a new stock above.</td></tr>';
                 return;
             }
 
@@ -1237,6 +1331,7 @@
                 const historic = stock.historic || {
                     price3d: 0, price1w: 0, price24d: 0,
                     volume3d: 0, volume1w: 0, volume24d: 0,
+                    changeToday: 0, changeYesterday: 0,
                 };
 
                 html += `
@@ -1247,6 +1342,8 @@
                         <td>${formatCurrency(stock.breakoutPrice)}</td>
                         <td class="${getPnLClass(entryChange)}">${formatPercentage(entryChange)}</td>
                         <td class="${hasBreakout ? getPnLClass(breakoutChange) : 'neutral'}">${hasBreakout ? formatPercentage(breakoutChange) : '-'}</td>
+                        <td class="${getPnLClass(historic.changeToday)}">${formatPercentage(historic.changeToday)}</td>
+                        <td class="${getPnLClass(historic.changeYesterday)}">${formatPercentage(historic.changeYesterday)}</td>
                         <td class="${getPnLClass(historic.price3d)}">${formatPercentage(historic.price3d)}</td>
                         <td class="${getPnLClass(historic.price1w)}">${formatPercentage(historic.price1w)}</td>
                         <td class="${getPnLClass(historic.price24d)}">${formatPercentage(historic.price24d)}</td>
@@ -1318,7 +1415,7 @@
             let html = '';
 
             if (appState.watchlistHistory.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="33" class="neutral" style="text-align: center;">No stocks marked as bought yet. Use the "Bought" button on the Watchlist tab.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="35" class="neutral" style="text-align: center;">No stocks marked as bought yet. Use the "Bought" button on the Watchlist tab.</td></tr>';
                 return;
             }
 
@@ -1331,6 +1428,7 @@
                 const historic = stock.historic || {
                     price3d: 0, price1w: 0, price24d: 0,
                     volume3d: 0, volume1w: 0, volume24d: 0,
+                    changeToday: 0, changeYesterday: 0,
                 };
 
                 html += `
@@ -1342,6 +1440,8 @@
                         <td>${formatCurrency(stock.breakoutPrice)}</td>
                         <td class="${getPnLClass(entryChange)}">${formatPercentage(entryChange)}</td>
                         <td class="${hasBreakout ? getPnLClass(breakoutChange) : 'neutral'}">${hasBreakout ? formatPercentage(breakoutChange) : '-'}</td>
+                        <td class="${getPnLClass(historic.changeToday)}">${formatPercentage(historic.changeToday)}</td>
+                        <td class="${getPnLClass(historic.changeYesterday)}">${formatPercentage(historic.changeYesterday)}</td>
                         <td class="${getPnLClass(historic.price3d)}">${formatPercentage(historic.price3d)}</td>
                         <td class="${getPnLClass(historic.price1w)}">${formatPercentage(historic.price1w)}</td>
                         <td class="${getPnLClass(historic.price24d)}">${formatPercentage(historic.price24d)}</td>
@@ -1626,7 +1726,7 @@
         // OHLC data (same Yahoo Finance source as everything else). Standard
         // periods are used here (EMA 20/50, MACD 12/26/9, CCI 20) — this is
         // separate from the manual checklist checkboxes on the Watchlist tab.
-        let analysisCharts = { price: null, macd: null, cci: null };
+        let analysisCharts = { price: null, macd: null, cci: null, coppock: null };
 
         function calculateEMASeries(values, period) {
             const k = 2 / (period + 1);
@@ -1663,6 +1763,42 @@
                 (v !== null && signalLine[i] !== null) ? v - signalLine[i] : null
             );
             return { macdLine, signalLine, histogram };
+        }
+
+        function calculateROCSeries(closes, period) {
+            const roc = new Array(closes.length).fill(null);
+            for (let i = period; i < closes.length; i++) {
+                const past = closes[i - period];
+                if (past) roc[i] = ((closes[i] - past) / past) * 100;
+            }
+            return roc;
+        }
+
+        function calculateWMASeries(values, period) {
+            const wma = new Array(values.length).fill(null);
+            const weightSum = (period * (period + 1)) / 2;
+            for (let i = period - 1; i < values.length; i++) {
+                let sum = 0;
+                let valid = true;
+                for (let w = 0; w < period; w++) {
+                    const v = values[i - period + 1 + w];
+                    if (v === null || v === undefined) { valid = false; break; }
+                    sum += v * (w + 1);
+                }
+                wma[i] = valid ? sum / weightSum : null;
+            }
+            return wma;
+        }
+
+        // Standard Coppock Curve: WMA(10) of [ROC(14) + ROC(11)]. Traditionally
+        // used on monthly data; applied here to daily closes for simplicity.
+        function calculateCoppockCurve(closes) {
+            const roc14 = calculateROCSeries(closes, 14);
+            const roc11 = calculateROCSeries(closes, 11);
+            const sumRoc = closes.map((_, i) =>
+                (roc14[i] !== null && roc11[i] !== null) ? roc14[i] + roc11[i] : null
+            );
+            return calculateWMASeries(sumRoc, 10);
         }
 
         function calculateCCISeries(highs, lows, closes, period = 20) {
@@ -1704,7 +1840,9 @@
 
             let result;
             try {
-                result = await fetchYahooChart(ticker, '6mo');
+                // 2 years of daily data — needed so 200/369-period indicators
+                // actually have enough history to produce values at all.
+                result = await fetchYahooChart(ticker, '2y');
             } catch (error) {
                 resultsDiv.textContent = `Couldn't load chart data for ${ticker}. It may be an invalid symbol, or the free data source is temporarily unavailable — try again in a moment.`;
                 return;
@@ -1734,8 +1872,14 @@
 
             const ema20 = calculateEMASeries(closes, 20);
             const ema50 = calculateEMASeries(closes, 50);
+            const ema150 = calculateEMASeries(closes, 150);
+            const ema200 = calculateEMASeries(closes, 200);
             const { macdLine, signalLine, histogram } = calculateMACDSeries(closes);
-            const cci = calculateCCISeries(highs, lows, closes, 20);
+            const cci33 = calculateCCISeries(highs, lows, closes, 33);
+            const cci72 = calculateCCISeries(highs, lows, closes, 72);
+            const cci150 = calculateCCISeries(highs, lows, closes, 150);
+            const cci200 = calculateCCISeries(highs, lows, closes, 200);
+            const coppock = calculateCoppockCurve(closes);
 
             const meta = result.meta;
             const cmp = meta.regularMarketPrice;
@@ -1762,6 +1906,8 @@
                         { label: 'Close', data: closes, borderColor: '#667eea', borderWidth: 2, pointRadius: 0, tension: 0.1 },
                         { label: 'EMA 20', data: ema20, borderColor: '#f59e0b', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
                         { label: 'EMA 50', data: ema50, borderColor: '#10b981', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+                        { label: 'EMA 150', data: ema150, borderColor: '#ef4444', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+                        { label: 'EMA 200', data: ema200, borderColor: '#764ba2', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
                     ]
                 },
                 options: { responsive: true, interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 10 } } } }
@@ -1785,7 +1931,25 @@
                 data: {
                     labels: dates,
                     datasets: [
-                        { label: 'CCI (20)', data: cci, borderColor: '#764ba2', borderWidth: 1.5, pointRadius: 0 },
+                        { label: 'CCI (33)', data: cci33, borderColor: '#667eea', borderWidth: 1.5, pointRadius: 0 },
+                        { label: 'CCI (72)', data: cci72, borderColor: '#f59e0b', borderWidth: 1.5, pointRadius: 0 },
+                        { label: 'CCI (150)', data: cci150, borderColor: '#10b981', borderWidth: 1.5, pointRadius: 0 },
+                        { label: 'CCI (200)', data: cci200, borderColor: '#764ba2', borderWidth: 1.5, pointRadius: 0 },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: { x: { ticks: { maxTicksLimit: 10 } } },
+                }
+            });
+
+            analysisCharts.coppock = new Chart(document.getElementById('analysis-coppock-chart'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { label: 'Coppock Curve', data: coppock, borderColor: '#059669', borderWidth: 1.5, pointRadius: 0 },
                     ]
                 },
                 options: {
@@ -2020,6 +2184,114 @@
             );
         }
 
+        function renderMoverCard(label, changePercent) {
+            const isPositive = changePercent >= 0;
+            const cls = isPositive ? 'green' : '';
+            const style = isPositive ? '' : 'style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);"';
+            const sign = isPositive ? '+' : '';
+            return `
+                <div class="summary-card ${cls}" ${style}>
+                    <div class="summary-title">${label}</div>
+                    <div class="summary-value">${sign}${changePercent.toFixed(2)}%</div>
+                </div>
+            `;
+        }
+
+        function periodReturnFromResult(result) {
+            const quote = result.indicators && result.indicators.quote && result.indicators.quote[0];
+            const closes = quote && quote.close ? quote.close.filter(v => v !== null && v !== undefined) : [];
+            if (closes.length < 2) throw new Error('Not enough data');
+            const first = closes[0];
+            const last = result.meta.regularMarketPrice || closes[closes.length - 1];
+            if (!first) throw new Error('Invalid baseline price');
+            return ((last - first) / first) * 100;
+        }
+
+        // For Indian tickers already in Portfolio/Watchlist (needs .NS/.BO suffix handling)
+        async function fetchTrackedPeriodReturn(ticker, range) {
+            const result = await fetchYahooChart(ticker, range);
+            return periodReturnFromResult(result);
+        }
+
+        // For global tickers like sector ETFs (no NSE/BSE suffix)
+        async function fetchGlobalPeriodReturn(yahooSymbol, range) {
+            const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=${range}`;
+            const data = await fetchWithProxies(yahooUrl);
+            const result = data && data.chart && data.chart.result && data.chart.result[0];
+            if (!result || !result.meta) throw new Error('No data');
+            return periodReturnFromResult(result);
+        }
+
+        const GLOBAL_SECTOR_ETFS = [
+            { label: 'Technology (XLK)', yahooSymbol: 'XLK' },
+            { label: 'Financials (XLF)', yahooSymbol: 'XLF' },
+            { label: 'Energy (XLE)', yahooSymbol: 'XLE' },
+            { label: 'Health Care (XLV)', yahooSymbol: 'XLV' },
+            { label: 'Consumer Discretionary (XLY)', yahooSymbol: 'XLY' },
+            { label: 'Consumer Staples (XLP)', yahooSymbol: 'XLP' },
+            { label: 'Industrials (XLI)', yahooSymbol: 'XLI' },
+            { label: 'Materials (XLB)', yahooSymbol: 'XLB' },
+            { label: 'Utilities (XLU)', yahooSymbol: 'XLU' },
+            { label: 'Real Estate (XLRE)', yahooSymbol: 'XLRE' },
+            { label: 'Communication (XLC)', yahooSymbol: 'XLC' },
+        ];
+
+        async function loadTrackedTopMovers() {
+            const tickers = Array.from(new Set([
+                ...appState.portfolio.map(s => s.ticker),
+                ...appState.watchlist.map(s => s.symbol),
+            ]));
+
+            const periods = [
+                { key: 'quarter', range: '3mo' },
+                { key: 'month', range: '1mo' },
+                { key: 'week', range: '5d' },
+            ];
+
+            for (const period of periods) {
+                const container = document.getElementById(`market-top-${period.key}`);
+                if (!container) continue;
+
+                if (tickers.length === 0) {
+                    container.innerHTML = '<div class="summary-card" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);"><div class="summary-title">Add stocks to Portfolio or Watchlist to see this</div></div>';
+                    continue;
+                }
+
+                container.innerHTML = '<div class="summary-card"><div class="summary-title">Loading…</div></div>';
+                const results = await Promise.all(tickers.map(async (t) => {
+                    try {
+                        const pct = await fetchTrackedPeriodReturn(t, period.range);
+                        return { label: t, changePercent: pct, live: true };
+                    } catch (error) {
+                        return { label: t, live: false };
+                    }
+                }));
+                const top5 = results.filter(r => r.live).sort((a, b) => b.changePercent - a.changePercent).slice(0, 5);
+                container.innerHTML = top5.length
+                    ? top5.map(r => renderMoverCard(r.label, r.changePercent)).join('')
+                    : '<div class="summary-card" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);"><div class="summary-title">Data unavailable right now</div></div>';
+            }
+        }
+
+        async function loadGlobalSectorMovers() {
+            const container = document.getElementById('market-global-sectors');
+            if (!container) return;
+            container.innerHTML = '<div class="summary-card"><div class="summary-title">Loading…</div></div>';
+
+            const results = await Promise.all(GLOBAL_SECTOR_ETFS.map(async (etf) => {
+                try {
+                    const pct = await fetchGlobalPeriodReturn(etf.yahooSymbol, '3mo');
+                    return { label: etf.label, changePercent: pct, live: true };
+                } catch (error) {
+                    return { label: etf.label, live: false };
+                }
+            }));
+            const top5 = results.filter(r => r.live).sort((a, b) => b.changePercent - a.changePercent).slice(0, 5);
+            container.innerHTML = top5.length
+                ? top5.map(r => renderMoverCard(r.label, r.changePercent)).join('')
+                : '<div class="summary-card" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);"><div class="summary-title">Data unavailable right now</div></div>';
+        }
+
         async function loadMarketOverview() {
             const indicesContainer = document.getElementById('market-indices');
             const commoditiesContainer = document.getElementById('market-commodities');
@@ -2076,6 +2348,10 @@
             sectorContainer.innerHTML = topSectors.length
                 ? topSectors.map(r => renderIndexCard(r.label, r.price, r.changePercent, r.changePercent >= 0)).join('')
                 : '<div class="summary-card" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);"><div class="summary-title">Sector data unavailable right now</div></div>';
+
+            // These can run after the above resolves — not blocking the rest of the tab
+            loadTrackedTopMovers();
+            loadGlobalSectorMovers();
         }
 
 
