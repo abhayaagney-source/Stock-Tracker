@@ -154,6 +154,16 @@
             opacity: 0.9;
         }
 
+        /* Inside a summary-card, text must stay white regardless of
+           positive/negative class — otherwise green/red text on a
+           green/red gradient card background becomes nearly invisible. */
+        .summary-card .summary-change.positive,
+        .summary-card .summary-change.negative,
+        .summary-card .summary-value.positive,
+        .summary-card .summary-value.negative {
+            color: white;
+        }
+
         /* Form Styles */
         .form-section {
             background: #f8fafc;
@@ -293,6 +303,40 @@
 
         .portfolio-table tbody tr:hover {
             background: #f9fafb;
+        }
+
+        /* Freeze the first column so it stays visible while scrolling
+           horizontally through wide tables (Watchlist, Portfolio, etc.) */
+        .portfolio-table th:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 11; /* above the sticky thead (10) at the top-left corner */
+        }
+        .portfolio-table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 4;
+            background: white;
+        }
+        .portfolio-table tbody tr:hover td:first-child {
+            background: #f9fafb;
+        }
+
+        /* Sortable column headers */
+        .portfolio-table th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+        .portfolio-table th.sortable:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+        .portfolio-table th.sortable .sort-arrow {
+            margin-left: 4px;
+            opacity: 0.6;
+            font-size: 11px;
+        }
+        .portfolio-table th.sortable.sort-active .sort-arrow {
+            opacity: 1;
         }
 
         .portfolio-table tbody tr:last-child td {
